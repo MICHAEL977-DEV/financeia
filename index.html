@@ -439,15 +439,15 @@ body.dk .adm-stat.gold{background:#2a1a00}
     <button class="nb ativo" id="btn-dashboard"><i class="ti ti-home"></i> Dashboard</button>
     <span class="ng">Controle</span>
     <button class="nb" id="btn-gastos"><i class="ti ti-receipt"></i> Gastos</button>
-    <button class="nb" id="btn-dividas"><i class="ti ti-credit-card"></i> Dívidas</button>
-    <button class="nb" id="btn-metas"><i class="ti ti-target"></i> Metas</button>
-    <button class="nb" id="btn-orcamento"><i class="ti ti-adjustments-horizontal"></i> Orçamento</button>
+    <button class="nb" id="btn-dividas"><i class="ti ti-credit-card"></i> Dívidas <i class="ti ti-lock" id="lk-dividas" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
+    <button class="nb" id="btn-metas"><i class="ti ti-target"></i> Metas <i class="ti ti-lock" id="lk-metas" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
+    <button class="nb" id="btn-orcamento"><i class="ti ti-adjustments-horizontal"></i> Orçamento <i class="ti ti-lock" id="lk-orcamento" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
     <span class="ng">Análise</span>
-    <button class="nb" id="btn-comparador"><i class="ti ti-arrows-diff"></i> Comparador</button>
-    <button class="nb" id="btn-relatorio"><i class="ti ti-file-analytics"></i> Relatório</button>
-    <button class="nb" id="btn-historico"><i class="ti ti-history"></i> Histórico</button>
-    <button class="nb" id="btn-calendario"><i class="ti ti-calendar"></i> Calendário</button>
-    <button class="nb" id="btn-simulador"><i class="ti ti-calculator"></i> Simulador</button>
+    <button class="nb" id="btn-comparador"><i class="ti ti-arrows-diff"></i> Comparador <i class="ti ti-lock" id="lk-comparador" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
+    <button class="nb" id="btn-relatorio"><i class="ti ti-file-analytics"></i> Relatório <i class="ti ti-lock" id="lk-relatorio" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
+    <button class="nb" id="btn-historico"><i class="ti ti-history"></i> Histórico <i class="ti ti-lock" id="lk-historico" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
+    <button class="nb" id="btn-calendario"><i class="ti ti-calendar"></i> Calendário <i class="ti ti-lock" id="lk-calendario" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
+    <button class="nb" id="btn-simulador"><i class="ti ti-calculator"></i> Simulador <i class="ti ti-lock" id="lk-simulador" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
     <span class="ng">IA</span>
     <button class="nb" id="btn-ia"><i class="ti ti-sparkles"></i> Consultor IA</button>
     <div class="nf">
@@ -520,7 +520,7 @@ body.dk .adm-stat.gold{background:#2a1a00}
       </div>
       <div class="card">
         <div class="card-tt">
-          <div class="card-tl"><i class="ti ti-list"></i> Lançamentos — <span id="gastos-mes-label" style="color:#EF9F27">Junho 2026</span></div>
+          <div class="card-tl"><i class="ti ti-list"></i> Lançamentos — <span id="gastos-mes-label" style="color:#EF9F27">Junho 2026</span> <span id="gastos-contador" style="font-size:11px;color:var(--tx3);font-weight:400"></span></div>
           <button class="btn-a" id="btn-add-gasto"><i class="ti ti-plus"></i> Novo</button>
         </div>
         <div class="gasto-hd"><span>Data</span><span>Descrição</span><span>Categoria</span><span style="text-align:right">Valor</span><span></span></div>
@@ -913,7 +913,16 @@ function atualizarMesUI(){
 }
 
 (document.getElementById('mes-prev')||{addEventListener:function(){}}).addEventListener('click',function(){if(mesVisto>0){mesVisto--;atualizarMesUI();irPara(paginaAtual);}});
-(document.getElementById('mes-next')||{addEventListener:function(){}}).addEventListener('click',function(){if(mesVisto<MESES_ANOS.length-1){mesVisto++;atualizarMesUI();irPara(paginaAtual);}});
+(document.getElementById('mes-next')||{addEventListener:function(){}}).addEventListener('click',function(){
+  if(mesVisto<MESES_ANOS.length-1){
+    if((mesVisto+1)>MES_ATUAL_IDX&&!isPremium()){
+      alert('Acesso a meses futuros e um recurso Premium!\nAssine o Premium para planejar meses futuros.');
+      irPara('upgrade');
+      return;
+    }
+    mesVisto++;atualizarMesUI();irPara(paginaAtual);
+  }
+});
 
 // ============================================================
 // CACHE LOCAL (evita re-buscar o que já foi carregado)
@@ -962,6 +971,18 @@ async function renderGastos(){
   }
   updResumoGastos(gs);
   updDB(gs);
+  // Mostrar contador para padrao
+  var contEl=document.getElementById('gastos-contador');
+  if(contEl){
+    if(!isPremium()){
+      var restantes=Math.max(0,10-gs.length);
+      contEl.textContent='('+gs.length+'/10 — '+restantes+' restantes)';
+      contEl.style.color=gs.length>=10?'#E24B4A':gs.length>=8?'#EF9F27':'var(--tx3)';
+    } else {
+      contEl.textContent='('+gs.length+' lançamentos)';
+      contEl.style.color='var(--tx3)';
+    }
+  }
 }
 
 function gRow(g){
@@ -1005,6 +1026,17 @@ function updResumoGastos(gs){
 });
 
 (document.getElementById('btn-add-gasto')||{addEventListener:function(){}}).addEventListener('click',async function(){
+  var gs=await carregarGastos();
+  if(!isPremium()&&gs.length>=10){
+    alert('Voce atingiu o limite de 10 lancamentos por mes no plano Padrao.\nAssine o Premium para lancamentos ilimitados!');
+    irPara('upgrade');
+    return;
+  }
+  if(!isPremium()&&isFuturo()){
+    alert('Lancamentos em meses futuros e um recurso Premium!');
+    irPara('upgrade');
+    return;
+  }
   var m=MESES_ANOS[mesVisto];
   var prefix=(m.mes+1<10?'0':'')+(m.mes+1)+'/'+String(m.ano).slice(-2);
   var novo={user_id:sbUser.id,ano:m.ano,mes:m.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Novo lançamento',categoria:'Alimentação',valor:0};
@@ -1196,7 +1228,15 @@ async function renderCalendario(){
     return '<button class="'+cls+'" data-idx="'+i+'">'+m.label+'</button>';
   }).join('');
   strip.querySelectorAll('.cal-mes-pill').forEach(function(btn){
-    btn.addEventListener('click',function(){calMesVisto=parseInt(this.getAttribute('data-idx'));renderCalendario();});
+    btn.addEventListener('click',function(){
+      var idx=parseInt(this.getAttribute('data-idx'));
+      if(idx>MES_ATUAL_IDX&&!isPremium()){
+        alert('Acesso ao calendário de meses futuros é um recurso Premium!');
+        irPara('upgrade');
+        return;
+      }
+      calMesVisto=idx;renderCalendario();
+    });
   });
   // Cabeçalho
   var m=MESES_ANOS[calMesVisto];var fut=calMesVisto>MES_ATUAL_IDX;
@@ -1467,6 +1507,13 @@ function irPara(id){
   paginaAtual=id;
   if(id==='dashboard'){updDB();renderGrafico();}
   if(id==='gastos'){curCat='todos';document.querySelectorAll('#tabs-cat .tab').forEach(function(t,i){t.classList.toggle('ativo',i===0);});renderGastos();}
+  // Abas bloqueadas para plano Padrao
+  var bloqueadas=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador'];
+  if(bloqueadas.includes(id)&&!isPremium()){
+    var pgLock=document.getElementById('pag-'+id);
+    if(pgLock)pgLock.innerHTML=premiumLock(TITLES[id]||id);
+    return;
+  }
   if(id==='dividas')renderDividas();
   if(id==='metas')renderMetas();
   if(id==='orcamento')renderOrc();
@@ -1526,6 +1573,12 @@ function iniciarApp(){
       sbEl.insertBefore(btnUp,sbEl.firstChild);
     }
   }
+  // Ocultar cadeados na sidebar para premium
+  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador'];
+  locks.forEach(function(id){
+    var lk=document.getElementById('lk-'+id);
+    if(lk)lk.style.display=isPremium()?'none':'inline';
+  });
   document.getElementById('login-screen').classList.remove('vis');
   document.getElementById('app').classList.add('vis');
   atualizarMesUI();
@@ -1701,7 +1754,13 @@ self.addEventListener('fetch',function(e){
           carregarPerfil(),
           new Promise(function(_,rej){setTimeout(function(){rej('timeout');},3000);})
         ]).catch(function(){sbPerfil={nome:sbUser.email,plano:'padrao'};});
-        document.getElementById('login-screen').classList.remove('vis');
+        // Ocultar cadeados na sidebar para premium
+  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador'];
+  locks.forEach(function(id){
+    var lk=document.getElementById('lk-'+id);
+    if(lk)lk.style.display=isPremium()?'none':'inline';
+  });
+  document.getElementById('login-screen').classList.remove('vis');
         iniciarApp();
       }
     }

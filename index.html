@@ -1390,7 +1390,7 @@ async function sendChat(){
   if(!isPremium()){
     var box=document.getElementById('msgs');
     var ab=document.createElement('div');ab.className='bub-ai';
-    ab.innerHTML='🔒 O Consultor IA é um recurso Premium. <span style="color:#0F6E56;cursor:pointer;text-decoration:underline;font-weight:600" onclick="irPara(&quot;upgrade&quot;)">Ver planos →</span>';
+    ab.textContent='Recurso Premium. Acesse o plano Premium para usar o Consultor IA.';
     box.appendChild(ab);box.scrollTop=box.scrollHeight;return;
   }
   var inp=document.getElementById('cinp'),msg=inp.value.trim();if(!msg)return;
@@ -1450,7 +1450,7 @@ document.getElementById('btn-upd-chart').addEventListener('click',function(){ren
 // NAVEGAÇÃO
 // ============================================================
 var PAGES=['dashboard','gastos','dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia','upgrade','admin'];
-var TITLES={dashboard:'Visão geral',gastos:'Controle de gastos',dividas:'Controle de dívidas',metas:'Metas financeiras',orcamento:'Orçamento mensal',comparador:'Comparador de meses',relatorio:'Relatório mensal',historico:'Histórico mensal',calendario:'Calendário financeiro',simulador:'Simulador de investimentos',ia:'Consultor IA',upgrade:'⭐ Seja Premium',admin:'👑 Administração'};
+var TITLES={dashboard:'Visao geral',gastos:'Controle de gastos',dividas:'Controle de dividas',metas:'Metas financeiras',orcamento:'Orcamento mensal',comparador:'Comparador de meses',relatorio:'Relatorio mensal',historico:'Historico mensal',calendario:'Calendario financeiro',simulador:'Simulador de investimentos',ia:'Consultor IA',upgrade:'Seja Premium',admin:'Administracao'};
 var paginaAtual='dashboard';
 
 function irPara(id){
@@ -1533,7 +1533,15 @@ function iniciarApp(){
 
 // ── PREMIUM LOCK ─────────────────────────────────────────────────────────────
 function premiumLock(titulo){
-  return '<div class="prem-lock"><i class="ti ti-lock"></i><h3>Recurso Premium</h3><p><b>'+titulo+'</b> está disponível apenas no plano Premium.<br><br>Assine agora e tenha acesso completo a todos os recursos.</p><button class="btn-upgrade" onclick="irPara(&quot;upgrade&quot;)"><i class="ti ti-crown"></i> ⭐ Ver planos e assinar</button></div>';
+  var div=document.createElement('div');
+  div.className='prem-lock';
+  div.innerHTML='<i class="ti ti-lock"></i><h3>Recurso Premium</h3><p><b>'+titulo+'</b> esta disponivel apenas no plano Premium. Assine para ter acesso completo.</p>';
+  var btn=document.createElement('button');
+  btn.className='btn-upgrade';
+  btn.innerHTML='<i class="ti ti-crown"></i> Ver planos e assinar';
+  btn.onclick=function(){irPara('upgrade');};
+  div.appendChild(btn);
+  return div.outerHTML;
 }
 
 // ── PWA INSTALL ───────────────────────────────────────────────────────────────

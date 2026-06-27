@@ -1586,17 +1586,27 @@ var admUsuarios=[];
 var PRECO_PREMIUM=19.90;
 
 async function carregarAdmin(){
-  if(!isAdmin())return;
+  if(!isAdmin()){
+    document.getElementById('adm-list').innerHTML='<div style="font-size:13px;color:#E24B4A;padding:12px">Acesso negado. Faça login como admin.</div>';
+    return;
+  }
   document.getElementById('adm-list').innerHTML='<div class="loading-tab"><div class="sp"></div>Carregando usuários...</div>';
   try{
-    var r=await fetch(SB_URL+'/rest/v1/perfis?select=*&order=criado_em.desc',{
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+sbToken}
+    var r=await fetch(SB_URL+'/rest/v1/perfis?select=id,nome,plano,perfil,criado_em&order=criado_em.desc&limit=100',{
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+sbToken,'Accept':'application/json'}
     });
-    admUsuarios=await r.json();
-    if(!Array.isArray(admUsuarios))admUsuarios=[];
+    var txt=await r.text();
+    console.log('Admin response status:',r.status,'body:',txt.slice(0,200));
+    try{ admUsuarios=JSON.parse(txt); }catch(e){ admUsuarios=[]; }
+    if(!Array.isArray(admUsuarios)){
+      console.warn('Resposta não é array:',admUsuarios);
+      admUsuarios=[];
+    }
+    console.log('Usuários carregados:',admUsuarios.length);
     renderAdmin();
   }catch(e){
-    document.getElementById('adm-list').innerHTML='<div style="font-size:13px;color:#E24B4A;padding:12px">Erro ao carregar. Verifique as permissões.</div>';
+    console.error('Erro carregarAdmin:',e);
+    document.getElementById('adm-list').innerHTML='<div style="font-size:13px;color:#E24B4A;padding:12px">Erro: '+e.message+'</div>';
   }
 }
 
@@ -1617,7 +1627,7 @@ function renderAdmin(filtro){
     return '<div class="adm-usr-rw">'+
       '<span style="font-weight:600;color:var(--tx)">'+(u.nome||'—')+'</span>'+
       '<span style="font-size:12px;color:var(--tx3)">'+(u.id.slice(0,20)+'...')+'</span>'+
-      '<span><span class="'+(isPrem?'badge-adm':'badge-std')+'">'+(isPrem?'⭐ Premium':'Padrão')+'</span></span>'+
+      '<span><span class="'+(isPrem?'badge-adm':'badge-std')+'">'+(isPrem?'Premium':'Padrão')+'</span></span>'+
       '<span style="font-size:12px;color:var(--tx3)">'+dt+'</span>'+
       '<span><button class="btn-pln '+(isPrem?'dn':'up')+'" onclick="togglePlano(&quot;'+u.id+'&quot;,&quot;'+(isPrem?'padrao':'premium')+'&quot;)">'+(isPrem?'→ Padrão':'→ Premium')+'</button></span>'+
     '</div>';

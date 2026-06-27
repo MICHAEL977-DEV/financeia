@@ -682,11 +682,12 @@ function sbHeaders(extra){
   var h = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY)};
   return Object.assign(h,extra||{});
 }
-async function sbGet(table,params){
+function sbGet(table,params){
   var qs = typeof params==='string' ? params : Object.keys(params||{}).map(function(k){return k+'='+encodeURIComponent(params[k]);}).join('&');
-  var r = await fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders()});
-  if(!r.ok){console.warn('sbGet error',r.status,table,qs);return [];}
-  return r.json();
+  return fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders()}).then(function(r){
+    if(!r.ok){console.warn('sbGet error',r.status,table,qs);return [];}
+    return r.json();
+  });
 }
 async function sbPost(table,body){
   var r = await fetch(SB_URL+'/rest/v1/'+table,{method:'POST',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});

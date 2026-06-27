@@ -864,9 +864,15 @@ async function fazerCadastro(){
 
 async function carregarPerfil(){
   try{
+    var controller=new AbortController();
+    var tid=setTimeout(function(){controller.abort();},5000);
     var r=await sbGet('perfis','id=eq.'+sbUser.id+'&select=*');
-    sbPerfil=Array.isArray(r)&&r.length?r[0]:{nome:sbUser.user_metadata&&sbUser.user_metadata.nome||sbUser.email,plano:'padrao'};
-  } catch(e){ sbPerfil={nome:sbUser.email,plano:'padrao'}; }
+    clearTimeout(tid);
+    sbPerfil=Array.isArray(r)&&r.length?r[0]:{nome:(sbUser.user_metadata&&sbUser.user_metadata.nome)||sbUser.email,plano:'padrao'};
+  } catch(e){
+    console.warn('carregarPerfil erro:', e);
+    sbPerfil={nome:(sbUser.user_metadata&&sbUser.user_metadata.nome)||sbUser.email,plano:'padrao'};
+  }
 }
 
 function fazerLogout(){
@@ -1658,9 +1664,22 @@ self.addEventListener('fetch',function(e){
 // ============================================================
 // VERIFICAR SESSÃO EXISTENTE AO CARREGAR
 // ============================================================
+function mostrarLogin(){
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('login-screen').classList.add('vis');
+  document.getElementById('li-pass').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin();});
+  document.getElementById('li-email').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('li-pass').focus();});
+}
+
+// Segurança: se demorar mais de 4 segundos, mostrar login de qualquer forma
+var loadingTimeout = setTimeout(function(){
+  if(document.getElementById('loading-screen').style.display!=='none'){
+    mostrarLogin();
+  }
+}, 4000);
+
 (async function(){
   try{
-    // Tentar recuperar sessão do localStorage do navegador
     var stored=localStorage.getItem('sb-'+SB_URL.split('//')[1]+'-auth-token');
     if(stored){
       var parsed=JSON.parse(stored);
@@ -1668,18 +1687,15 @@ self.addEventListener('fetch',function(e){
         sbToken=parsed.access_token;
         sbUser=parsed.user;
         await carregarPerfil();
+        clearTimeout(loadingTimeout);
         document.getElementById('loading-screen').style.display='none';
         iniciarApp();
         return;
       }
     }
-  }catch(e){}
-  // Sem sessão — mostrar login
-  document.getElementById('loading-screen').style.display='none';
-  document.getElementById('login-screen').classList.add('vis');
-  // Permitir Enter no login
-  document.getElementById('li-pass').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin();});
-  document.getElementById('li-email').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('li-pass').focus();});
+  }catch(e){ console.warn('Erro ao verificar sessão:', e); }
+  clearTimeout(loadingTimeout);
+  mostrarLogin();
 })();
 </script>
 </body>

@@ -1390,7 +1390,7 @@ async function sendChat(){
   if(!isPremium()){
     var box=document.getElementById('msgs');
     var ab=document.createElement('div');ab.className='bub-ai';
-    ab.innerHTML='🔒 O Consultor IA é um recurso Premium. <span style="color:#0F6E56;cursor:pointer;text-decoration:underline;font-weight:600" onclick="irPara('upgrade')">Ver planos →</span>';
+    ab.innerHTML='🔒 O Consultor IA é um recurso Premium. <span style="color:#0F6E56;cursor:pointer;text-decoration:underline;font-weight:600" onclick="irPara(&quot;upgrade&quot;)">Ver planos →</span>';
     box.appendChild(ab);box.scrollTop=box.scrollHeight;return;
   }
   var inp=document.getElementById('cinp'),msg=inp.value.trim();if(!msg)return;
@@ -1533,7 +1533,7 @@ function iniciarApp(){
 
 // ── PREMIUM LOCK ─────────────────────────────────────────────────────────────
 function premiumLock(titulo){
-  return '<div class="prem-lock"><i class="ti ti-lock"></i><h3>Recurso Premium</h3><p><b>'+titulo+'</b> está disponível apenas no plano Premium.<br><br>Assine agora e tenha acesso completo a todos os recursos.</p><button class="btn-upgrade" onclick="irPara('upgrade')"><i class="ti ti-crown"></i> ⭐ Ver planos e assinar</button></div>';
+  return '<div class="prem-lock"><i class="ti ti-lock"></i><h3>Recurso Premium</h3><p><b>'+titulo+'</b> está disponível apenas no plano Premium.<br><br>Assine agora e tenha acesso completo a todos os recursos.</p><button class="btn-upgrade" onclick="irPara(&quot;upgrade&quot;)"><i class="ti ti-crown"></i> ⭐ Ver planos e assinar</button></div>';
 }
 
 // ── PWA INSTALL ───────────────────────────────────────────────────────────────
@@ -1610,7 +1610,7 @@ function renderAdmin(filtro){
       '<span style="font-size:12px;color:var(--tx3)">'+(u.id.slice(0,20)+'...')+'</span>'+
       '<span><span class="'+(isPrem?'badge-adm':'badge-std')+'">'+(isPrem?'⭐ Premium':'Padrão')+'</span></span>'+
       '<span style="font-size:12px;color:var(--tx3)">'+dt+'</span>'+
-      '<span><button class="btn-pln '+(isPrem?'dn':'up')+'" onclick="togglePlano(''+u.id+'',''+(isPrem?'padrao':'premium')+'')">'+(isPrem?'→ Padrão':'→ Premium')+'</button></span>'+
+      '<span><button class="btn-pln '+(isPrem?'dn':'up')+'" onclick="togglePlano(&quot;'+u.id+'&quot;,&quot;'+(isPrem?'padrao':'premium')+'&quot;)">'+(isPrem?'→ Padrão':'→ Premium')+'</button></span>'+
     '</div>';
   }).join('');
 }

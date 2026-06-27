@@ -682,9 +682,10 @@ function sbHeaders(extra){
   var h = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY)};
   return Object.assign(h,extra||{});
 }
-async function sbGet(table,params){
-  var qs = Object.keys(params||{}).map(function(k){return k+'='+encodeURIComponent(params[k]);}).join('&');
-  var r = await fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders({'Prefer':'return=representation'})});
+async async function sbGet(table,params){
+  var qs = typeof params==='string' ? params : Object.keys(params||{}).map(function(k){return k+'='+encodeURIComponent(params[k]);}).join('&');
+  var r = await fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders()});
+  if(!r.ok){console.warn('sbGet error',r.status,table,qs);return [];}
   return r.json();
 }
 async function sbPost(table,body){
@@ -856,7 +857,7 @@ async function carregarPerfil(){
   try{
     var controller=new AbortController();
     var tid=setTimeout(function(){controller.abort();},5000);
-    var r=await sbGet('perfis','id=eq.'+sbUser.id+'&select=*');
+    var r=await sbGet('perfis','select=*&id=eq.'+sbUser.id);
     clearTimeout(tid);
     sbPerfil=Array.isArray(r)&&r.length?r[0]:{nome:(sbUser.user_metadata&&sbUser.user_metadata.nome)||sbUser.email,plano:'padrao'};
   } catch(e){
@@ -911,8 +912,8 @@ function atualizarMesUI(){
   document.getElementById('gastos-mes-label').textContent=getMesLabel();
 }
 
-document.getElementById('mes-prev').addEventListener('click',function(){if(mesVisto>0){mesVisto--;atualizarMesUI();irPara(paginaAtual);}});
-document.getElementById('mes-next').addEventListener('click',function(){if(mesVisto<MESES_ANOS.length-1){mesVisto++;atualizarMesUI();irPara(paginaAtual);}});
+(document.getElementById('mes-prev')||{addEventListener:function(){}}).addEventListener('click',function(){if(mesVisto>0){mesVisto--;atualizarMesUI();irPara(paginaAtual);}});
+(document.getElementById('mes-next')||{addEventListener:function(){}}).addEventListener('click',function(){if(mesVisto<MESES_ANOS.length-1){mesVisto++;atualizarMesUI();irPara(paginaAtual);}});
 
 // ============================================================
 // CACHE LOCAL (evita re-buscar o que já foi carregado)
@@ -997,13 +998,13 @@ function updResumoGastos(gs){
   document.getElementById('rc2').textContent=(rec>0?Math.round(t/rec*100):0)+'%';
 }
 
-document.getElementById('tabs-cat').addEventListener('click',function(e){
+(document.getElementById('tabs-cat')||{addEventListener:function(){}}).addEventListener('click',function(e){
   var btn=e.target.closest('.tab');if(!btn)return;
   document.querySelectorAll('#tabs-cat .tab').forEach(function(t){t.classList.remove('ativo');});
   btn.classList.add('ativo');curCat=btn.getAttribute('data-cat');renderGastos();
 });
 
-document.getElementById('btn-add-gasto').addEventListener('click',async function(){
+(document.getElementById('btn-add-gasto')||{addEventListener:function(){}}).addEventListener('click',async function(){
   var m=MESES_ANOS[mesVisto];
   var prefix=(m.mes+1<10?'0':'')+(m.mes+1)+'/'+String(m.ano).slice(-2);
   var novo={user_id:sbUser.id,ano:m.ano,mes:m.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Novo lançamento',categoria:'Alimentação',valor:0};
@@ -1037,7 +1038,7 @@ async function salvarReceita(){
   var gs=await carregarGastos();updDB(gs);updResumoGastos(gs);
 }
 
-document.getElementById('modal-receita').addEventListener('click',function(e){if(e.target===this)fecharModal('modal-receita');});
+(document.getElementById('modal-receita')||{addEventListener:function(){}}).addEventListener('click',function(e){if(e.target===this)fecharModal('modal-receita');});
 
 // ============================================================
 // DASHBOARD
@@ -1097,7 +1098,7 @@ async function renderDividas(){
 }
 async function tqDv(id){var d=cacheDividas.find(function(x){return x.id===id;});if(!d)return;d.quitado=!d.quitado;await sbPatch('dividas',{quitado:d.quitado},'id',id);renderDividas();}
 async function dlDv(id){if(!confirm('Excluir esta dívida?'))return;await sbDelete('dividas','id',id);cacheDividas=cacheDividas.filter(function(x){return x.id!==id;});renderDividas();}
-document.getElementById('btn-add-div').addEventListener('click',async function(){
+(document.getElementById('btn-add-div')||{addEventListener:function(){}}).addEventListener('click',async function(){
   var novo={user_id:sbUser.id,descricao:'Nova dívida',total:5000,parcelas:12,pagas:0,juros:2.0,quitado:false};
   var r=await sbPost('dividas',novo);if(Array.isArray(r)&&r.length){if(!cacheDividas)cacheDividas=[];cacheDividas.push(r[0]);}renderDividas();
 });
@@ -1133,7 +1134,7 @@ async function renderMetas(){
   document.getElementById('mlist').innerHTML=h||'<div style="font-size:13px;color:var(--tx3);padding:12px 0">Nenhuma meta. Clique em + Nova.</div>';
 }
 async function dlMeta(id){if(!confirm('Excluir meta?'))return;await sbDelete('metas','id',id);cacheMetas=cacheMetas.filter(function(x){return x.id!==id;});renderMetas();}
-document.getElementById('btn-add-meta').addEventListener('click',async function(){
+(document.getElementById('btn-add-meta')||{addEventListener:function(){}}).addEventListener('click',async function(){
   var r=await sbPost('metas',{user_id:sbUser.id,icone:'ti-star',nome:'Nova meta',atual:0,total:10000,prazo:'Dez 2027'});
   if(Array.isArray(r)&&r.length){if(!cacheMetas)cacheMetas=[];cacheMetas.push(r[0]);}renderMetas();
 });
@@ -1167,7 +1168,7 @@ async function renderOrc(){
   document.getElementById('olist').innerHTML=h||'<div style="font-size:13px;color:var(--tx3);padding:12px 0">Nenhuma categoria. Clique em + Nova categoria.</div>';
 }
 async function dlOrc(id){if(!confirm('Excluir?'))return;await sbDelete('orcamento','id',id);cacheOrc=cacheOrc.filter(function(x){return x.id!==id;});renderOrc();}
-document.getElementById('btn-add-orc').addEventListener('click',async function(){
+(document.getElementById('btn-add-orc')||{addEventListener:function(){}}).addEventListener('click',async function(){
   var r=await sbPost('orcamento',{user_id:sbUser.id,categoria:'Nova categoria',limite:500,gasto:0});
   if(Array.isArray(r)&&r.length){if(!cacheOrc)cacheOrc=[];cacheOrc.push(r[0]);}renderOrc();
 });
@@ -1237,11 +1238,11 @@ async function dlEvt(id){
   renderCalendario();
 }
 
-document.getElementById('cal-prev-btn').addEventListener('click',function(){if(calMesVisto>0){calMesVisto--;renderCalendario();}});
-document.getElementById('cal-next-btn').addEventListener('click',function(){if(calMesVisto<MESES_ANOS.length-1){calMesVisto++;renderCalendario();}});
+(document.getElementById('cal-prev-btn')||{addEventListener:function(){}}).addEventListener('click',function(){if(calMesVisto>0){calMesVisto--;renderCalendario();}});
+(document.getElementById('cal-next-btn')||{addEventListener:function(){}}).addEventListener('click',function(){if(calMesVisto<MESES_ANOS.length-1){calMesVisto++;renderCalendario();}});
 
 // Modal evento
-document.getElementById('btn-add-evt').addEventListener('click',function(){
+(document.getElementById('btn-add-evt')||{addEventListener:function(){}}).addEventListener('click',function(){
   var m=MESES_ANOS[calMesVisto];
   document.getElementById('modal-evt-titulo').textContent='Novo evento — '+MESES_NOMES[m.mes];
   document.getElementById('mevt-desc').value='';document.getElementById('mevt-dia').value='';
@@ -1249,8 +1250,8 @@ document.getElementById('btn-add-evt').addEventListener('click',function(){
   document.getElementById('mevt-recor').value='nao';
   abrirModal('modal-evt');setTimeout(function(){document.getElementById('mevt-desc').focus();},80);
 });
-document.getElementById('modal-evt').addEventListener('click',function(e){if(e.target===this)fecharModal('modal-evt');});
-document.getElementById('mevt-ok').addEventListener('click',async function(){
+(document.getElementById('modal-evt')||{addEventListener:function(){}}).addEventListener('click',function(e){if(e.target===this)fecharModal('modal-evt');});
+(document.getElementById('mevt-ok')||{addEventListener:function(){}}).addEventListener('click',async function(){
   var desc=document.getElementById('mevt-desc').value.trim();
   var dia=parseInt(document.getElementById('mevt-dia').value)||1;
   var val=Math.round((parseFloat(document.getElementById('mevt-val').value)||0)*100)/100;
@@ -1335,7 +1336,7 @@ async function renderRelatorio(){
   document.getElementById('rel-cat').innerHTML=ct.length?ct.map(function(x){return '<div class="rrow"><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:'+(CC[x.cat]||'#0F6E56')+';display:inline-block"></span>'+x.cat+'</span><span>'+fmtVal(x.val)+' — '+(t>0?Math.round(x.val/t*100):0)+'%</span></div>';}).join(''):'<div style="font-size:13px;color:var(--tx3)">Sem gastos.</div>';
 }
 
-document.getElementById('btn-gerar').addEventListener('click',async function(){
+(document.getElementById('btn-gerar')||{addEventListener:function(){}}).addEventListener('click',async function(){
   if(!isPremium()){document.getElementById('rel-ia').innerHTML=premiumLock('Análise IA de relatórios');return;}
   var gs=await carregarGastos();var rec=await carregarReceita();
   var t=gs.reduce(function(a,g){return a+(+g.valor);},0);
@@ -1347,7 +1348,7 @@ document.getElementById('btn-gerar').addEventListener('click',async function(){
   }catch(e){document.getElementById('rel-ia').innerHTML='<span style="color:#E24B4A">Erro ao conectar com a IA.</span>';}
 });
 
-document.getElementById('btn-export').addEventListener('click',async function(){
+(document.getElementById('btn-export')||{addEventListener:function(){}}).addEventListener('click',async function(){
   var gs=await carregarGastos();var rec=await carregarReceita();
   var t=gs.reduce(function(a,g){return a+(+g.valor);},0);
   var txt='FinanceIA — Relatório '+getMesLabel()+'\n'+'='.repeat(40)+'\nReceita: '+fmtVal(rec)+'\nGastos: '+fmtVal(t)+'\nSaldo: '+fmtVal(Math.max(0,rec-t))+'\n\nDetalhes:\n'+gs.map(function(g){return '  '+g.descricao+': '+fmtVal(g.valor);}).join('\n')+'\n\nGerado em '+new Date().toLocaleDateString('pt-BR');
@@ -1358,7 +1359,7 @@ document.getElementById('btn-export').addEventListener('click',async function(){
 // SIMULADOR
 // ============================================================
 var chSim=null;
-document.getElementById('btn-sim').addEventListener('click',async function(){
+(document.getElementById('btn-sim')||{addEventListener:function(){}}).addEventListener('click',async function(){
   var ap=parseFloat(document.getElementById('sap').value)||0,mn=parseFloat(document.getElementById('smn').value)||0,tx=parseFloat(document.getElementById('stx').value)||0,an=parseInt(document.getElementById('san').value)||1;
   var tm=tx/100/12,n=an*12,s=ap;
   for(var i=1;i<=n;i++)s=s*(1+tm)+mn;
@@ -1384,8 +1385,8 @@ document.getElementById('btn-sim').addEventListener('click',async function(){
 // CONSULTOR IA (Groq)
 // ============================================================
 var chatHistory=[];
-document.getElementById('btn-chat').addEventListener('click',sendChat);
-document.getElementById('cinp').addEventListener('keydown',function(e){if(e.key==='Enter')sendChat();});
+(document.getElementById('btn-chat')||{addEventListener:function(){}}).addEventListener('click',sendChat);
+(document.getElementById('cinp')||{addEventListener:function(){}}).addEventListener('keydown',function(e){if(e.key==='Enter')sendChat();});
 async function sendChat(){
   if(!isPremium()){
     var box=document.getElementById('msgs');
@@ -1444,7 +1445,7 @@ async function renderGrafico(){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:11}}}},scales:{y:{ticks:{callback:function(v){return 'R$'+Math.round(v/1000)+'k';},font:{size:11}},grid:{color:'rgba(128,128,128,.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
   });
 }
-document.getElementById('btn-upd-chart').addEventListener('click',function(){renderGrafico();});
+var btnUpdChart=document.getElementById('btn-upd-chart');if(btnUpdChart)btnUpdChart.addEventListener('click',function(){renderGrafico();});
 
 // ============================================================
 // NAVEGAÇÃO
@@ -1483,7 +1484,7 @@ if(btnAdmEl)btnAdmEl.addEventListener('click',function(){irPara('admin');});
 
 // Modo escuro
 var isDark=false;
-document.getElementById('btndk').addEventListener('click',function(){
+(document.getElementById('btndk')||{addEventListener:function(){}}).addEventListener('click',function(){
   isDark=!isDark;document.body.classList.toggle('dk',isDark);
   document.getElementById('dkico').className=isDark?'ti ti-sun':'ti ti-moon';
   document.getElementById('dktx').textContent=isDark?'Modo claro':'Modo escuro';
@@ -1554,7 +1555,7 @@ window.addEventListener('appinstalled',function(){
   document.getElementById('pwa-banner').classList.remove('vis');
   pwaInstallEvent=null;
 });
-document.getElementById('pwa-install-btn').addEventListener('click',function(){
+(document.getElementById('pwa-install-btn')||{addEventListener:function(){}}).addEventListener('click',function(){
   if(pwaInstallEvent){pwaInstallEvent.prompt();pwaInstallEvent.userChoice.then(function(){pwaInstallEvent=null;document.getElementById('pwa-banner').classList.remove('vis');});}
 });
 function verificarPWA(){
@@ -1572,7 +1573,7 @@ function verificarPWA(){
 // ── STRIPE ────────────────────────────────────────────────────────────────────
 // Configure sua chave pública do Stripe aqui quando tiver
 var STRIPE_LINK='https://buy.stripe.com/SEU_LINK_AQUI';
-document.getElementById('btn-stripe').addEventListener('click',function(){
+(document.getElementById('btn-stripe')||{addEventListener:function(){}}).addEventListener('click',function(){
   if(STRIPE_LINK==='https://buy.stripe.com/SEU_LINK_AQUI'){
     alert('Configure seu link do Stripe!\n\n1. Crie uma conta em stripe.com\n2. Crie um Payment Link para seu produto\n3. Substitua STRIPE_LINK no código pelo seu link');
     return;
@@ -1663,8 +1664,8 @@ self.addEventListener('fetch',function(e){
 // VERIFICAR SESSÃO EXISTENTE AO CARREGAR
 // ============================================================
 // Login visível direto — sem tela de carregamento
-document.getElementById('li-pass').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin();});
-document.getElementById('li-email').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('li-pass').focus();});
+(document.getElementById('li-pass')||{addEventListener:function(){}}).addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin();});
+(document.getElementById('li-email')||{addEventListener:function(){}}).addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('li-pass').focus();});
 
 // Tentar restaurar sessão em background (silenciosamente)
 (async function(){

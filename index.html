@@ -325,13 +325,13 @@ body.dk .adm-stat.gold{background:#2a1a00}
 <body>
 
 <!-- LOADING -->
-<div id="loading-screen">
+<div id="loading-screen" style="display:none">
   <div class="spin"></div>
   <p>Carregando FinanceIA...</p>
 </div>
 
 <!-- LOGIN -->
-<div id="login-screen">
+<div id="login-screen" class="vis">
   <div class="login-wrap">
     <div class="login-brand">
       <div class="login-brand-ico"><i class="ti ti-leaf"></i></div>
@@ -1664,38 +1664,37 @@ self.addEventListener('fetch',function(e){
 // ============================================================
 // VERIFICAR SESSÃO EXISTENTE AO CARREGAR
 // ============================================================
-function mostrarLogin(){
-  document.getElementById('loading-screen').style.display='none';
-  document.getElementById('login-screen').classList.add('vis');
-  document.getElementById('li-pass').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin();});
-  document.getElementById('li-email').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('li-pass').focus();});
-}
+// Login visível direto — sem tela de carregamento
+document.getElementById('li-pass').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin();});
+document.getElementById('li-email').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('li-pass').focus();});
 
-// Segurança: se demorar mais de 4 segundos, mostrar login de qualquer forma
-var loadingTimeout = setTimeout(function(){
-  if(document.getElementById('loading-screen').style.display!=='none'){
-    mostrarLogin();
-  }
-}, 4000);
-
+// Tentar restaurar sessão em background (silenciosamente)
 (async function(){
   try{
     var stored=localStorage.getItem('sb-'+SB_URL.split('//')[1]+'-auth-token');
+    if(!stored){
+      // Tentar chave alternativa do Supabase
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i);
+        if(k&&k.includes('auth-token')&&k.includes('supabase')){
+          stored=localStorage.getItem(k); break;
+        }
+      }
+    }
     if(stored){
       var parsed=JSON.parse(stored);
       if(parsed&&parsed.access_token&&parsed.expires_at*1000>Date.now()){
         sbToken=parsed.access_token;
         sbUser=parsed.user;
-        await carregarPerfil();
-        clearTimeout(loadingTimeout);
-        document.getElementById('loading-screen').style.display='none';
+        await Promise.race([
+          carregarPerfil(),
+          new Promise(function(_,rej){setTimeout(function(){rej('timeout');},3000);})
+        ]).catch(function(){sbPerfil={nome:sbUser.email,plano:'padrao'};});
+        document.getElementById('login-screen').classList.remove('vis');
         iniciarApp();
-        return;
       }
     }
-  }catch(e){ console.warn('Erro ao verificar sessão:', e); }
-  clearTimeout(loadingTimeout);
-  mostrarLogin();
+  }catch(e){ console.warn('Sessão:', e); }
 })();
 </script>
 </body>

@@ -40,6 +40,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#e8efe8;
 .login-inp-wrap i{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;color:#9FE1CB;pointer-events:none}
 .login-inp{width:100%;font-size:14px;padding:11px 14px 11px 38px;border-radius:10px;border:1.5px solid #cce0d4;background:#f6faf7;color:#085041;outline:none;font-family:inherit;transition:.2s}
 .login-inp:focus{border-color:#0F6E56;background:#fff}
+.login-eye{position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9FE1CB;font-size:16px;padding:2px;line-height:1}
+.login-eye:hover{color:#0F6E56}
 .login-btn{width:100%;padding:13px;font-size:15px;font-weight:700;border-radius:12px;background:linear-gradient(135deg,#0F6E56,#1D9E75);color:#fff;border:none;cursor:pointer;font-family:inherit;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px rgba(15,110,86,.35);transition:.2s}
 .login-btn:hover{opacity:.9}
 .login-btn:disabled{opacity:.6;cursor:not-allowed}
@@ -341,7 +343,7 @@ body.dk .adm-stat.gold{background:#2a1a00}
         <label class="login-lbl">E-mail</label>
         <div class="login-inp-wrap"><i class="ti ti-mail"></i><input class="login-inp" id="li-email" type="email" placeholder="seu@email.com" autocomplete="email"/></div>
         <label class="login-lbl">Senha</label>
-        <div class="login-inp-wrap"><i class="ti ti-lock"></i><input class="login-inp" id="li-pass" type="password" placeholder="••••••" autocomplete="current-password"/></div>
+        <div class="login-inp-wrap"><i class="ti ti-lock"></i><input class="login-inp" id="li-pass" type="password" placeholder="••••••" autocomplete="current-password"/><button type="button" class="login-eye" id="li-eye" title="Mostrar senha"><i class="ti ti-eye" id="li-eye-ico"></i></button></div>
         <div class="login-lembrar">
           <label class="login-check-wrap">
             <input type="checkbox" id="li-lembrar"/>
@@ -372,7 +374,7 @@ body.dk .adm-stat.gold{background:#2a1a00}
         <label class="login-lbl">E-mail</label>
         <div class="login-inp-wrap"><i class="ti ti-mail"></i><input class="login-inp" id="cad-email" type="email" placeholder="seu@email.com"/></div>
         <label class="login-lbl">Senha (mínimo 6 caracteres)</label>
-        <div class="login-inp-wrap"><i class="ti ti-lock"></i><input class="login-inp" id="cad-pass" type="password" placeholder="••••••"/></div>
+        <div class="login-inp-wrap"><i class="ti ti-lock"></i><input class="login-inp" id="cad-pass" type="password" placeholder="••••••"/><button type="button" class="login-eye" id="cad-eye" title="Mostrar senha"><i class="ti ti-eye" id="cad-eye-ico"></i></button></div>
         <div class="login-err" id="cad-err"><i class="ti ti-alert-circle"></i> <span id="cad-err-txt"></span></div>
         <div class="login-ok" id="cad-ok"><i class="ti ti-check"></i> Conta criada! Verifique seu e-mail.</div>
         <button class="login-btn" id="cad-btn" onclick="fazerCadastro()"><i class="ti ti-user-plus"></i> Criar conta</button>
@@ -708,6 +710,20 @@ async function sbUpsert(table,body,onConflict){
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
+// Mostrar/ocultar senha
+function toggleSenha(inputId, eyeIcoId){
+  var inp=document.getElementById(inputId);
+  var ico=document.getElementById(eyeIcoId);
+  if(!inp||!ico)return;
+  if(inp.type==='password'){
+    inp.type='text';
+    ico.className='ti ti-eye-off';
+  } else {
+    inp.type='password';
+    ico.className='ti ti-eye';
+  }
+}
+
 function mostrarTab(t){
   document.getElementById('tab-entrar').classList.toggle('ativo',t==='entrar');
   document.getElementById('tab-cadastro').classList.toggle('ativo',t==='cadastro');
@@ -1513,7 +1529,7 @@ function irPara(id){
   if(id==='dashboard'){updDB();renderGrafico();}
   if(id==='gastos'){curCat='todos';document.querySelectorAll('#tabs-cat .tab').forEach(function(t,i){t.classList.toggle('ativo',i===0);});renderGastos();}
   // Abas bloqueadas para plano Padrao
-  var bloqueadas=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador'];
+  var bloqueadas=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
   if(bloqueadas.includes(id)&&!isPremium()){
     var pgLock=document.getElementById('pag-'+id);
     if(pgLock)pgLock.innerHTML=premiumLock(TITLES[id]||id);
@@ -1574,7 +1590,7 @@ function iniciarApp(){
       btnUp.className='nb';
       btnUp.style.cssText='background:linear-gradient(135deg,#EF9F27,#f7b733);color:#412402;font-weight:700';
       btnUp.innerHTML='<i class="ti ti-crown" style="color:#412402"></i> <span>Seja Premium</span>';
-      btnUp.onclick=function(){irPara('upgrade');};
+      btnUp.onclick=function(){irPara('upgrade');window.scrollTo(0,0);};
       sbEl.insertBefore(btnUp,sbEl.firstChild);
     }
   }

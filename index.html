@@ -682,12 +682,11 @@ function sbHeaders(extra){
   var h = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY)};
   return Object.assign(h,extra||{});
 }
-function sbGet(table,params){
+async function sbGet(table,params){
   var qs = typeof params==='string' ? params : Object.keys(params||{}).map(function(k){return k+'='+encodeURIComponent(params[k]);}).join('&');
-  return fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders()}).then(function(r){
-    if(!r.ok){console.warn('sbGet error',r.status,table,qs);return [];}
-    return r.json();
-  });
+  var r = await fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders()});
+  if(!r.ok){console.warn('sbGet error',r.status,table,qs);return [];}
+  return r.json();
 }
 async function sbPost(table,body){
   var r = await fetch(SB_URL+'/rest/v1/'+table,{method:'POST',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
@@ -856,14 +855,19 @@ async function fazerCadastro(){
 
 async function carregarPerfil(){
   try{
-    var controller=new AbortController();
-    var tid=setTimeout(function(){controller.abort();},5000);
     var r=await sbGet('perfis','select=id,nome,plano,perfil&id=eq.'+sbUser.id);
-    clearTimeout(tid);
-    sbPerfil=Array.isArray(r)&&r.length?r[0]:{nome:(sbUser.user_metadata&&sbUser.user_metadata.nome)||sbUser.email,plano:'padrao'};
+    if(Array.isArray(r)&&r.length){
+      sbPerfil=r[0];
+      // Se é admin por email, garantir que tem acesso total
+      if(ADMIN_EMAILS.includes(sbUser.email)&&sbPerfil.plano!=='premium'){
+        sbPerfil.plano='premium';sbPerfil.perfil='adm';
+      }
+    } else {
+      sbPerfil={id:sbUser.id,nome:(sbUser.user_metadata&&sbUser.user_metadata.nome)||sbUser.email,plano:'padrao',perfil:'usuario'};
+    }
   } catch(e){
     console.warn('carregarPerfil erro:', e);
-    sbPerfil={nome:(sbUser.user_metadata&&sbUser.user_metadata.nome)||sbUser.email,plano:'padrao'};
+    sbPerfil={id:sbUser.id,nome:(sbUser.user_metadata&&sbUser.user_metadata.nome)||sbUser.email,plano:'padrao',perfil:'usuario'};
   }
 }
 
@@ -1040,7 +1044,7 @@ function updResumoGastos(gs){
   }
   var m=MESES_ANOS[mesVisto];
   var prefix=(m.mes+1<10?'0':'')+(m.mes+1)+'/'+String(m.ano).slice(-2);
-  var novo={user_id:sbUser.id,ano:m.ano,mes:m.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Novo lançamento',categoria:'Alimentação',valor:0};
+  var catAtiva=curCat==='todos'?'Alimentação':curCat;var novo={user_id:sbUser.id,ano:m.ano,mes:m.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Novo lançamento',categoria:catAtiva,valor:0};
   var res=await sbPost('gastos',novo);
   if(Array.isArray(res)&&res.length){var k=cacheKey();if(!cacheGastos[k])cacheGastos[k]=[];cacheGastos[k].push(res[0]);}
   renderGastos();
@@ -1546,7 +1550,7 @@ var isDark=false;
 // E-mails de admin (adicione o seu aqui)
 var ADMIN_EMAILS=['michael.douglas977@outlook.com.br'];
 
-function isPremium(){return sbPerfil&&sbPerfil.plano==='premium';}
+function isPremium(){return isAdmin()||(sbPerfil&&sbPerfil.plano==='premium');}
 function isAdmin(){return sbUser&&(ADMIN_EMAILS.includes(sbUser.email)||(sbPerfil&&sbPerfil.perfil==='adm'));}
 
 function iniciarApp(){
@@ -1704,7 +1708,17 @@ async function togglePlano(userId,novoPlano){
     });
     var u=admUsuarios.find(function(x){return x.id===userId;});
     if(u)u.plano=novoPlano;
+    // Se atualizou o próprio usuário logado, atualizar sbPerfil e sidebar
+    if(sbUser&&sbUser.id===userId){
+      sbPerfil.plano=novoPlano;
+      var pb=document.getElementById('plano-badge');
+      if(pb){pb.textContent=novoPlano==='premium'?'Premium':'Padrão';pb.className='plano-badge'+(novoPlano==='padrao'?' padrao':'');}
+      // Atualizar cadeados na sidebar
+      var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador'];
+      locks.forEach(function(id){var lk=document.getElementById('lk-'+id);if(lk)lk.style.display=isPremium()?'none':'inline';});
+    }
     renderAdmin(document.getElementById('adm-busca').value||null);
+    alert('Plano atualizado para '+(novoPlano==='premium'?'Premium':'Padrão')+'! O usuário precisa sair e entrar novamente para ver as mudancas.');
   }catch(e){alert('Erro ao atualizar plano.');}
 }
 

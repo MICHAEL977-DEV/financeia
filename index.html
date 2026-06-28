@@ -1607,9 +1607,8 @@ function iniciarApp(){
   var btnUpSb=document.getElementById('btn-upgrade-sb');
   if(btnUpSb){
     btnUpSb.style.display=isPremium()?'none':'flex';
-    btnUpSb.removeEventListener('click',btnUpSb._upgradeHandler||function(){});
-    btnUpSb._upgradeHandler=function(){irPara('upgrade');};
-    btnUpSb.addEventListener('click',btnUpSb._upgradeHandler);
+    btnUpSb.onclick=null;
+    btnUpSb.setAttribute('onclick','irPara('upgrade')');
   }
   // Ocultar cadeados na sidebar para premium
   var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
@@ -1780,9 +1779,53 @@ self.addEventListener('fetch',function(e){
 (document.getElementById('li-pass')||{addEventListener:function(){}}).addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin();});
 (document.getElementById('li-email')||{addEventListener:function(){}}).addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('li-pass').focus();});
 
-// Eventos do olho de senha
-document.getElementById('li-eye').addEventListener('click',function(){toggleSenha('li-pass','li-eye-ico');});
-document.getElementById('cad-eye').addEventListener('click',function(){toggleSenha('cad-pass','cad-eye-ico');});
+// Eventos do olho adicionados via delegação abaixo
+
+// ── RESET DE SENHA via link do e-mail ────────────────────────────────────────
+(function(){
+  var hash=window.location.hash;
+  if(hash&&hash.includes('type=recovery')){
+    // Extrair token
+    var params={};
+    hash.replace('#','').split('&').forEach(function(p){
+      var kv=p.split('=');
+      params[kv[0]]=decodeURIComponent(kv[1]||'');
+    });
+    var token=params['access_token'];
+    if(token){
+      // Mostrar modal de nova senha
+      setTimeout(function(){
+        var nova=prompt('Digite sua nova senha (mínimo 6 caracteres):');
+        if(!nova||nova.length<6){alert('Senha muito curta.');return;}
+        var conf=prompt('Confirme a nova senha:');
+        if(nova!==conf){alert('As senhas não coincidem.');return;}
+        // Atualizar senha via Supabase
+        fetch(SB_URL+'/auth/v1/user',{
+          method:'PUT',
+          headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+token},
+          body:JSON.stringify({password:nova})
+        }).then(function(r){return r.json();}).then(function(d){
+          if(d.id){
+            alert('Senha atualizada com sucesso! Faça login com a nova senha.');
+            window.location.hash='';
+            window.location.reload();
+          } else {
+            alert('Erro ao atualizar: '+(d.message||'tente novamente'));
+          }
+        }).catch(function(){alert('Erro de conexão.');});
+      },500);
+    }
+  }
+})();
+
+// Event delegation para olhos de senha (funciona mesmo com display:none)
+document.addEventListener('click',function(e){
+  var btn=e.target.closest('.login-eye');
+  if(!btn)return;
+  var id=btn.id;
+  if(id==='li-eye')toggleSenha('li-pass','li-eye-ico');
+  if(id==='cad-eye')toggleSenha('cad-pass','cad-eye-ico');
+});
 
 // Tentar restaurar sessão em background (silenciosamente)
 (async function(){

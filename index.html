@@ -40,9 +40,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#e8efe8;
 .login-inp-wrap i{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;color:#9FE1CB;pointer-events:none}
 .login-inp{width:100%;font-size:14px;padding:11px 14px 11px 38px;border-radius:10px;border:1.5px solid #cce0d4;background:#f6faf7;color:#085041;outline:none;font-family:inherit;transition:.2s}
 .login-inp:focus{border-color:#0F6E56;background:#fff}
-.login-eye{position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9FE1CB;font-size:16px;padding:4px;line-height:1;z-index:2}
+.login-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#adc;font-size:15px;padding:4px;line-height:1;z-index:2;display:flex;align-items:center}
 .login-eye:hover{color:#0F6E56}
-.login-inp-wrap .login-inp{padding-right:40px}
+.login-inp-wrap input.login-inp{padding-right:42px !important}
 .login-btn{width:100%;padding:13px;font-size:15px;font-weight:700;border-radius:12px;background:linear-gradient(135deg,#0F6E56,#1D9E75);color:#fff;border:none;cursor:pointer;font-family:inherit;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px rgba(15,110,86,.35);transition:.2s}
 .login-btn:hover{opacity:.9}
 .login-btn:disabled{opacity:.6;cursor:not-allowed}
@@ -452,7 +452,8 @@ body.dk .adm-stat.gold{background:#2a1a00}
     <button class="nb" id="btn-calendario"><i class="ti ti-calendar"></i> Calendário <i class="ti ti-lock" id="lk-calendario" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
     <button class="nb" id="btn-simulador"><i class="ti ti-calculator"></i> Simulador <i class="ti ti-lock" id="lk-simulador" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
     <span class="ng">IA</span>
-    <button class="nb" id="btn-ia"><i class="ti ti-sparkles"></i> Consultor IA</button>
+    <button class="nb" id="btn-ia"><i class="ti ti-sparkles"></i> Consultor IA <i class="ti ti-lock" id="lk-ia" style="font-size:10px;margin-left:auto;opacity:.5"></i></button>
+    <button class="nb" id="btn-upgrade-sb" style="display:none;background:linear-gradient(135deg,#EF9F27,#f7b733);color:#412402;font-weight:700"><i class="ti ti-crown" style="color:#412402"></i> <span>Seja Premium</span></button>
     <div class="nf">
       <div class="uc">
         <div class="av" id="av-letra">?</div>
@@ -1499,7 +1500,7 @@ async function renderGrafico(){
   }).join('');
   if(chMain)chMain.destroy();
   var chMEl=document.getElementById('chM');
-  if(!chMEl)return;
+  if(!chMEl||!chMEl.getContext)return;
   chMain=new Chart(chMEl.getContext('2d'),{
     type:'line',
     data:{labels:labels,datasets:[
@@ -1584,23 +1585,14 @@ function iniciarApp(){
   // Mostrar botão admin só para admins
   var btnAdm=document.getElementById('btn-admin');
   if(btnAdm)btnAdm.style.display=isAdmin()?'flex':'none';
-  // Adicionar botão upgrade na sidebar se não for premium
-  var btnUpEx=document.getElementById('btn-upgrade-sb');
-  if(btnUpEx)btnUpEx.remove(); // remover anterior se existir
-  if(!isPremium()){
-    var sbEl=document.querySelector('.nf');
-    if(sbEl){
-      var btnUp=document.createElement('button');
-      btnUp.id='btn-upgrade-sb';
-      btnUp.className='nb';
-      btnUp.style.cssText='background:linear-gradient(135deg,#EF9F27,#f7b733);color:#412402;font-weight:700;margin-bottom:4px';
-      btnUp.innerHTML='<i class="ti ti-crown" style="color:#412402"></i> <span>Seja Premium</span>';
-      btnUp.addEventListener('click',function(){irPara('upgrade');});
-      sbEl.insertBefore(btnUp,sbEl.firstChild);
-    }
+  // Mostrar/ocultar botão upgrade
+  var btnUpSb=document.getElementById('btn-upgrade-sb');
+  if(btnUpSb){
+    btnUpSb.style.display=isPremium()?'none':'flex';
+    btnUpSb.onclick=function(){irPara('upgrade');};
   }
   // Ocultar cadeados na sidebar para premium
-  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador'];
+  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
   locks.forEach(function(id){
     var lk=document.getElementById('lk-'+id);
     if(lk)lk.style.display=isPremium()?'none':'inline';
@@ -1795,7 +1787,7 @@ document.getElementById('cad-eye').addEventListener('click',function(){toggleSen
           new Promise(function(_,rej){setTimeout(function(){rej('timeout');},3000);})
         ]).catch(function(){sbPerfil={nome:sbUser.email,plano:'padrao'};});
         // Ocultar cadeados na sidebar para premium
-  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador'];
+  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
   locks.forEach(function(id){
     var lk=document.getElementById('lk-'+id);
     if(lk)lk.style.display=isPremium()?'none':'inline';

@@ -1595,7 +1595,7 @@ async function updDB(gs){
   var rec=totRl||await carregarReceita();
   var t=gs.reduce(function(a,g){return a+(+g.valor);},0),p=rec-t;
   document.getElementById('db-rec').textContent=fmtVal(rec);
-  document.getElementById('db-rec-sub').textContent=isFuturo()?'planejado — clique para editar':'clique para editar';
+  document.getElementById('db-rec-sub').textContent=isFuturo()?'planejado':'total de entradas';
   document.getElementById('db-g').textContent=fmtVal(t);
   var saldoEl=document.getElementById('db-p');
   saldoEl.textContent=fmtVal(p);

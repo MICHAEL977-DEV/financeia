@@ -1871,7 +1871,13 @@ async function sendChat(){
     }
     var d=iaResponse;
     document.getElementById('dig').classList.remove('vis');
-    var resp=d.choices&&d.choices[0]?d.choices[0].message.content:'Não entendi. Pode reformular?';
+    console.log('Resposta IA:', JSON.stringify(d).slice(0,200));
+    var resp='Não entendi. Pode reformular?';
+    if(d&&d.choices&&d.choices.length>0&&d.choices[0].message&&d.choices[0].message.content){
+      resp=d.choices[0].message.content;
+    } else if(d&&d.error){
+      resp='Erro da IA: '+d.error.message;
+    }
     chatHistory.push({role:'assistant',content:resp});
     var ab=document.createElement('div');ab.className='bub-ai';ab.textContent=resp;box.appendChild(ab);box.scrollTop=box.scrollHeight;
   }catch(e){

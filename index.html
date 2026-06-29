@@ -1194,11 +1194,25 @@ document.getElementById('btn-add-inv').addEventListener('click',async function()
   renderInvestimentos();
 });
 
-document.getElementById('btn-ocultar-inv-db').addEventListener('click',function(){
-  investOculto=!investOculto;
-  this.textContent=investOculto?'Mostrar':'Ocultar';
-  updDB();
-});
+// Botão ocultar investimentos no dashboard
+var btnOcultarInvDb=document.getElementById('btn-ocultar-inv-db');
+if(btnOcultarInvDb){
+  btnOcultarInvDb.addEventListener('click',function(){
+    investOculto=!investOculto;
+    this.textContent=investOculto?'Mostrar':'Ocultar';
+    // Atualizar apenas os campos de investimento sem recarregar tudo
+    var invTotEl=document.getElementById('db-inv-total');
+    var invAplEl=document.getElementById('db-inv-aplic');
+    var invRendEl=document.getElementById('db-inv-rend');
+    if(!cacheInvest){updDB();return;}
+    var totAplic=cacheInvest.reduce(function(a,i){return a+(+i.aplicado);},0);
+    var totAtualInv=cacheInvest.reduce(function(a,i){return a+(+i.atual);},0);
+    var totRendInv=totAtualInv-totAplic;
+    if(invTotEl)invTotEl.textContent=investOculto?'••••••':fmtVal(totAtualInv);
+    if(invAplEl)invAplEl.textContent=investOculto?'••••••':fmtVal(totAplic);
+    if(invRendEl)invRendEl.textContent=investOculto?'••••':(totRendInv>=0?'+':'')+fmtVal(totRendInv);
+  });
+}
 
 document.getElementById('btn-ocultar-inv').addEventListener('click',function(){
   investOculto=!investOculto;
@@ -1692,9 +1706,11 @@ async function updDB(gs){
     else nb.classList.remove('vis');
   }
   // Atualizar card de investimentos no dashboard
-  if(cacheInvest&&cacheInvest.length){
-    var totAplic=cacheInvest.reduce(function(a,i){return a+(+i.aplicado);},0);
-    var totAtualInv=cacheInvest.reduce(function(a,i){return a+(+i.atual);},0);
+  // Buscar e mostrar investimentos (para todos os usuários)
+  var atualizarCardInv=function(invs){
+    if(!invs||!invs.length){document.getElementById('db-inv-row').style.display='none';return;}
+    var totAplic=invs.reduce(function(a,i){return a+(+i.aplicado);},0);
+    var totAtualInv=invs.reduce(function(a,i){return a+(+i.atual);},0);
     var totRendInv=totAtualInv-totAplic;
     var invTotEl=document.getElementById('db-inv-total');
     var invAplEl=document.getElementById('db-inv-aplic');
@@ -1706,12 +1722,13 @@ async function updDB(gs){
       invRendEl.style.color=totRendInv>=0?'#9FE1CB':'#E24B4A';
     }
     document.getElementById('db-inv-row').style.display='grid';
+  };
+  if(cacheInvest){
+    atualizarCardInv(cacheInvest);
   } else {
-    // Buscar investimentos em background
     sbGet('investimentos','user_id=eq.'+sbUser.id).then(function(r){
-      if(Array.isArray(r)&&r.length){
-        cacheInvest=r;updDB(gs);
-      }
+      cacheInvest=Array.isArray(r)?r:[];
+      atualizarCardInv(cacheInvest);
     });
   }
   // Resumo rápido do mês
@@ -2269,10 +2286,11 @@ async function carregarAdmin(){
 
 function renderAdmin(filtro){
   var lista=filtro?admUsuarios.filter(function(u){return(u.nome||'').toLowerCase().indexOf(filtro.toLowerCase())>-1;}):admUsuarios;
-  var prem=lista.filter(function(u){return u.plano==='premium';}).length;
+  var prem=lista.filter(function(u){return u.plano==='premium'&&u.perfil!=='adm';}).length;
+  var adms=lista.filter(function(u){return u.perfil==='adm';}).length;
   document.getElementById('adm-total').textContent=lista.length;
-  document.getElementById('adm-prem').textContent=prem;
-  document.getElementById('adm-std').textContent=lista.length-prem;
+  document.getElementById('adm-prem').textContent=prem+(adms?' (+'+adms+' adm)':'');
+  document.getElementById('adm-std').textContent=lista.length-prem-adms;
   document.getElementById('adm-rec').textContent='R$ '+(prem*PRECO_PREMIUM).toFixed(2).replace('.',',');
   if(!lista.length){document.getElementById('adm-list').innerHTML='<div style="font-size:13px;color:var(--tx3);padding:12px">Nenhum usuário.</div>';return;}
   var container=document.getElementById('adm-list');container.innerHTML='';

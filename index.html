@@ -973,37 +973,43 @@ async function renderReceitas(){
 }
 
 document.getElementById('btn-add-receita').addEventListener('click',async function(){
-  var recorrente=confirm('Esta receita é FIXA (repete todo mês)?\n\nOK = Sim, fixo mensal\nCancelar = Não, apenas este mês');
-  var mesesParaLancar=1;
-  var descFixedR='Nova receita';
-  var diaFixedR='';
-  if(recorrente){
-    var qtdStrR=prompt('Por quantos meses repetir?','12');
-    var qtdR=parseInt(qtdStrR)||12;
-    mesesParaLancar=Math.min(qtdR,MESES_ANOS.length-mesVisto);
-    descFixedR=prompt('Descrição da receita fixa:','Ex: Salário')||'Receita fixa';
-    diaFixedR=prompt('Dia do recebimento (1-31):','5')||'05';
+  var ehFixoR=confirm('Esta receita é FIXA (repete todo mês)?\n\nOK = Sim, fixo mensal\nCancelar = Não, apenas este mês');
+  var descLancR, diaLancR, mesesLancR, valorLancR;
+  if(ehFixoR){
+    descLancR=prompt('Descrição (ex: Salário, Aluguel recebido...):') || 'Receita fixa';
+    if(!descLancR){return;}
+    diaLancR=prompt('Dia do recebimento (1 a 31):','5') || '5';
+    diaLancR=diaLancR.padStart(2,'0');
+    valorLancR=parseFloat(prompt('Valor (R$):','0')) || 0;
+    valorLancR=Math.round(valorLancR*100)/100;
+    var qtdMesesR=parseInt(prompt('Repetir por quantos meses?','12')) || 12;
+    mesesLancR=Math.min(qtdMesesR, MESES_ANOS.length-mesVisto);
+  } else {
+    descLancR='Nova receita';
+    diaLancR='00';
+    valorLancR=0;
+    mesesLancR=1;
   }
-  for(var mi=0;mi<mesesParaLancar;mi++){
+  var criadosR=0;
+  for(var mi=0;mi<mesesLancR;mi++){
     var mIdx=mesVisto+mi;
     if(mIdx>=MESES_ANOS.length)break;
     var mx=MESES_ANOS[mIdx];
-    var prefix=(mx.mes+1<10?'0':'')+(mx.mes+1)+'/'+String(mx.ano).slice(-2);
-    var diaStrR=recorrente?(diaFixedR.padStart(2,'0')+'/'+prefix.split('/')[0]):'00/'+prefix.split('/')[0];
-    var descStrR=recorrente?descFixedR:'Nova receita';
-    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:diaStrR,descricao:descStrR,fonte:'Salário',valor:0};
+    var mesStrR=(mx.mes+1<10?'0':'')+(mx.mes+1);
+    var dataStrR=diaLancR+'/'+mesStrR;
+    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:dataStrR,descricao:descLancR,fonte:'Salário',valor:valorLancR};
     var res=await sbPost('receitas_lanc',novo);
     if(Array.isArray(res)&&res.length){
       var k=mx.ano+'-'+mx.mes;
       if(!cacheReceitasLanc[k])cacheReceitasLanc[k]=[];
       cacheReceitasLanc[k].push(res[0]);
-      // Atualizar total da receita do mês
-      var totNovo=(cacheReceitasLanc[k]||[]).reduce(function(a,x){return a+(+x.valor);},0);
-      sbUpsert('receitas',{user_id:sbUser.id,ano:mx.ano,mes:mx.mes,valor:totNovo},'user_id,ano,mes');
-      cacheReceitas[k]=totNovo;
+      var totNovoR=(cacheReceitasLanc[k]||[]).reduce(function(a,x){return a+(+x.valor);},0);
+      sbUpsert('receitas',{user_id:sbUser.id,ano:mx.ano,mes:mx.mes,valor:totNovoR},'user_id,ano,mes');
+      cacheReceitas[k]=totNovoR;
+      criadosR++;
     }
   }
-  if(recorrente){alert('Receita fixa criada nos próximos '+mesesParaLancar+' meses!');}
+  if(ehFixoR){alert('Receita fixa "'+descLancR+'" criada em '+criadosR+' meses!');}
   renderReceitas();
 });
 
@@ -1320,31 +1326,41 @@ document.getElementById('btn-add-gasto').addEventListener('click',async function
   var gs=await carregarGastos();
   if(!isPremium()&&gs.length>=10){alert('Limite de 10 lançamentos/mês no plano Padrão.\nAssine o Premium para lançamentos ilimitados!');irPara('upgrade');return;}
   if(!isPremium()&&isFuturo()){alert('Lançamentos em meses futuros é um recurso Premium!');irPara('upgrade');return;}
-  // Perguntar se é recorrente
   var catAtiva=curCat==='todos'?'Alimentação':curCat;
-  var recorrente=confirm('Este lançamento é FIXO (repete todo mês)?\n\nOK = Sim, fixo mensal\nCancelar = Não, apenas este mês');
-  var mesesParaLancar=1;
-  if(recorrente){
-    var qtdStr=prompt('Por quantos meses repetir?\n(deixe em branco para 12 meses)','12');
-    var qtd=parseInt(qtdStr)||12;
-    mesesParaLancar=Math.min(qtd,MESES_ANOS.length-mesVisto);
+  // Perguntar se é fixo
+  var ehFixo=confirm('Este lançamento é FIXO (repete todo mês)?\n\nOK = Sim, lançar em múltiplos meses\nCancelar = Não, apenas este mês');
+  var descLanc, diaLanc, mesesLanc, valorLanc;
+  if(ehFixo){
+    descLanc=prompt('Descrição (ex: Cartão de Crédito, Aluguel...):','');
+    if(descLanc===null)return;
+    if(!descLanc)descLanc='Lançamento fixo';
+    diaLanc=(prompt('Dia do vencimento (1 a 31):','1')||'1').padStart(2,'0');
+    valorLanc=Math.round((parseFloat(prompt('Valor R$:','0'))||0)*100)/100;
+    var qtdM=parseInt(prompt('Repetir por quantos meses?','12'))||12;
+    mesesLanc=Math.min(qtdM,MESES_ANOS.length-mesVisto);
+  } else {
+    descLanc='Novo lançamento';
+    diaLanc='00';
+    valorLanc=0;
+    mesesLanc=1;
   }
-  for(var mi=0;mi<mesesParaLancar;mi++){
+  var criados=0;
+  for(var mi=0;mi<mesesLanc;mi++){
     var mIdx=mesVisto+mi;
     if(mIdx>=MESES_ANOS.length)break;
     var mx=MESES_ANOS[mIdx];
-    var prefix=(mx.mes+1<10?'0':'')+(mx.mes+1)+'/'+String(mx.ano).slice(-2);
-    var diaStr=recorrente?(diaFixed.padStart(2,'0')+'/'+prefix.split('/')[0]):'00/'+prefix.split('/')[0];
-    var descStr=recorrente?descFixed:'Novo lançamento';
-    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:diaStr,descricao:descStr,categoria:catAtiva,valor:0};
+    var mesStr=(mx.mes+1<10?'0':'')+(mx.mes+1);
+    var dataStr=diaLanc+'/'+mesStr;
+    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:dataStr,descricao:descLanc,categoria:catAtiva,valor:valorLanc};
     var res=await sbPost('gastos',novo);
     if(Array.isArray(res)&&res.length){
       var k=mx.ano+'-'+mx.mes;
       if(!cacheGastos[k])cacheGastos[k]=[];
       cacheGastos[k].push(res[0]);
+      criados++;
     }
   }
-  if(recorrente){alert('Lançamento fixo criado nos próximos '+mesesParaLancar+' meses!\nEdite o valor e descrição em cada mês conforme necessário.');}
+  if(ehFixo)alert('Lançamento "'+descLanc+'" criado em '+criados+' meses!');
   renderGastos();
 });
 

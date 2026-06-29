@@ -806,14 +806,18 @@ async function fazerLogin(){
       // Salvar ou limpar credenciais
       if(lembrar){salvarCredenciais(email,pass);}
       else{limparCredenciais();}
+      console.log('Token OK, carregando perfil...');
       await carregarPerfil();
+      console.log('Perfil:', sbPerfil);
+      console.log('Iniciando app...');
       iniciarApp();
     } else {
       document.getElementById('li-err-txt').textContent=d.error_description||'E-mail ou senha incorretos.';
       document.getElementById('li-err').classList.add('vis');
     }
   } catch(e){
-    document.getElementById('li-err-txt').textContent='Erro de conexão. Tente novamente.';
+    console.error('fazerLogin erro:', e, e.message, e.stack);
+    document.getElementById('li-err-txt').textContent='Erro: '+(e.message||'desconhecido');
     document.getElementById('li-err').classList.add('vis');
   }
   btn.disabled=false; btn.innerHTML='<i class="ti ti-login"></i> Entrar';

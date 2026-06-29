@@ -975,17 +975,23 @@ async function renderReceitas(){
 document.getElementById('btn-add-receita').addEventListener('click',async function(){
   var recorrente=confirm('Esta receita é FIXA (repete todo mês)?\n\nOK = Sim, fixo mensal\nCancelar = Não, apenas este mês');
   var mesesParaLancar=1;
+  var descFixedR='Nova receita';
+  var diaFixedR='';
   if(recorrente){
-    var qtdStrR=prompt('Por quantos meses repetir?\n(deixe em branco para 12 meses)','12');
+    var qtdStrR=prompt('Por quantos meses repetir?','12');
     var qtdR=parseInt(qtdStrR)||12;
     mesesParaLancar=Math.min(qtdR,MESES_ANOS.length-mesVisto);
+    descFixedR=prompt('Descrição da receita fixa:','Ex: Salário')||'Receita fixa';
+    diaFixedR=prompt('Dia do recebimento (1-31):','5')||'05';
   }
   for(var mi=0;mi<mesesParaLancar;mi++){
     var mIdx=mesVisto+mi;
     if(mIdx>=MESES_ANOS.length)break;
     var mx=MESES_ANOS[mIdx];
     var prefix=(mx.mes+1<10?'0':'')+(mx.mes+1)+'/'+String(mx.ano).slice(-2);
-    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Nova receita'+(recorrente?' (fixa)':''),fonte:'Salário',valor:0};
+    var diaStrR=recorrente?(diaFixedR.padStart(2,'0')+'/'+prefix.split('/')[0]):'00/'+prefix.split('/')[0];
+    var descStrR=recorrente?descFixedR:'Nova receita';
+    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:diaStrR,descricao:descStrR,fonte:'Salário',valor:0};
     var res=await sbPost('receitas_lanc',novo);
     if(Array.isArray(res)&&res.length){
       var k=mx.ano+'-'+mx.mes;
@@ -1134,13 +1140,23 @@ function atualizarMesUI(){
 }
 
 document.getElementById('mes-prev').addEventListener('click',function(){
-  if(mesVisto>0){mesVisto--;atualizarMesUI();irPara(paginaAtual);}
+  if(mesVisto>0){
+    // Limpar cache do mês que vai ser exibido para forçar reload
+    var nextK=MESES_ANOS[mesVisto-1].ano+'-'+MESES_ANOS[mesVisto-1].mes;
+    delete cacheGastos[nextK];
+    delete cacheReceitasLanc[nextK];
+    mesVisto--;atualizarMesUI();irPara(paginaAtual);
+  }
 });
 document.getElementById('mes-next').addEventListener('click',function(){
   if(mesVisto<MESES_ANOS.length-1){
     if((mesVisto+1)>MES_ATUAL_IDX&&!isPremium()){
       alert('Acesso a meses futuros é um recurso Premium!');irPara('upgrade');return;
     }
+    // Limpar cache do mês seguinte para forçar reload
+    var nextK=MESES_ANOS[mesVisto+1].ano+'-'+MESES_ANOS[mesVisto+1].mes;
+    delete cacheGastos[nextK];
+    delete cacheReceitasLanc[nextK];
     mesVisto++;atualizarMesUI();irPara(paginaAtual);
   }
 });
@@ -1318,7 +1334,9 @@ document.getElementById('btn-add-gasto').addEventListener('click',async function
     if(mIdx>=MESES_ANOS.length)break;
     var mx=MESES_ANOS[mIdx];
     var prefix=(mx.mes+1<10?'0':'')+(mx.mes+1)+'/'+String(mx.ano).slice(-2);
-    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Novo lançamento'+(recorrente?' (fixo)':''),categoria:catAtiva,valor:0};
+    var diaStr=recorrente?(diaFixed.padStart(2,'0')+'/'+prefix.split('/')[0]):'00/'+prefix.split('/')[0];
+    var descStr=recorrente?descFixed:'Novo lançamento';
+    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:diaStr,descricao:descStr,categoria:catAtiva,valor:0};
     var res=await sbPost('gastos',novo);
     if(Array.isArray(res)&&res.length){
       var k=mx.ano+'-'+mx.mes;

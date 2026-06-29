@@ -973,8 +973,13 @@ async function renderReceitas(){
 }
 
 document.getElementById('btn-add-receita').addEventListener('click',async function(){
-  var recorrente=confirm('Esta receita é FIXA (repete todo mês)?\n\nOK = Sim, lançar nos próximos 12 meses\nCancelar = Não, apenas este mês');
-  var mesesParaLancar=recorrente?Math.min(12,MESES_ANOS.length-mesVisto):1;
+  var recorrente=confirm('Esta receita é FIXA (repete todo mês)?\n\nOK = Sim, fixo mensal\nCancelar = Não, apenas este mês');
+  var mesesParaLancar=1;
+  if(recorrente){
+    var qtdStrR=prompt('Por quantos meses repetir?\n(deixe em branco para 12 meses)','12');
+    var qtdR=parseInt(qtdStrR)||12;
+    mesesParaLancar=Math.min(qtdR,MESES_ANOS.length-mesVisto);
+  }
   for(var mi=0;mi<mesesParaLancar;mi++){
     var mIdx=mesVisto+mi;
     if(mIdx>=MESES_ANOS.length)break;
@@ -1300,9 +1305,14 @@ document.getElementById('btn-add-gasto').addEventListener('click',async function
   if(!isPremium()&&gs.length>=10){alert('Limite de 10 lançamentos/mês no plano Padrão.\nAssine o Premium para lançamentos ilimitados!');irPara('upgrade');return;}
   if(!isPremium()&&isFuturo()){alert('Lançamentos em meses futuros é um recurso Premium!');irPara('upgrade');return;}
   // Perguntar se é recorrente
-  var recorrente=confirm('Este lançamento é FIXO (repete todo mês)?\n\nOK = Sim, lançar nos próximos 12 meses\nCancelar = Não, apenas este mês');
   var catAtiva=curCat==='todos'?'Alimentação':curCat;
-  var mesesParaLancar=recorrente?Math.min(12,MESES_ANOS.length-mesVisto):1;
+  var recorrente=confirm('Este lançamento é FIXO (repete todo mês)?\n\nOK = Sim, fixo mensal\nCancelar = Não, apenas este mês');
+  var mesesParaLancar=1;
+  if(recorrente){
+    var qtdStr=prompt('Por quantos meses repetir?\n(deixe em branco para 12 meses)','12');
+    var qtd=parseInt(qtdStr)||12;
+    mesesParaLancar=Math.min(qtd,MESES_ANOS.length-mesVisto);
+  }
   for(var mi=0;mi<mesesParaLancar;mi++){
     var mIdx=mesVisto+mi;
     if(mIdx>=MESES_ANOS.length)break;
@@ -1326,15 +1336,18 @@ document.getElementById('btn-add-gasto').addEventListener('click',async function
 var chMain=null;
 async function updDB(gs){
   if(!gs)gs=await carregarGastos();
-  var rec=await carregarReceita();
-  // Se não há receita manual definida, usar soma dos lançamentos de receita
-  if(!rec){
-    var k=cacheKey();
-    var rl=cacheReceitasLanc[k];
-    if(!rl){var rr=await sbGet('receitas_lanc','user_id=eq.'+sbUser.id+'&ano=eq.'+MESES_ANOS[mesVisto].ano+'&mes=eq.'+MESES_ANOS[mesVisto].mes);rl=Array.isArray(rr)?rr:[];cacheReceitasLanc[k]=rl;}
-    var totRl=rl.reduce(function(a,r){return a+(+r.valor);},0);
-    if(totRl>0){rec=totRl;}
+  // Sempre somar lançamentos de receita + receita manual
+  var k=cacheKey();
+  var rl=cacheReceitasLanc[k];
+  if(!rl){
+    var rr=await sbGet('receitas_lanc','user_id=eq.'+sbUser.id+'&ano=eq.'+MESES_ANOS[mesVisto].ano+'&mes=eq.'+MESES_ANOS[mesVisto].mes);
+    rl=Array.isArray(rr)?rr:[];
+    cacheReceitasLanc[k]=rl;
   }
+  var totRl=rl.reduce(function(a,r){return a+(+r.valor);},0);
+  // Atualizar cacheReceitas com o total dos lançamentos
+  if(totRl>0){cacheReceitas[k]=totRl;}
+  var rec=totRl||await carregarReceita();
   var t=gs.reduce(function(a,g){return a+(+g.valor);},0),p=Math.max(0,rec-t);
   document.getElementById('db-rec').textContent=fmtVal(rec);
   document.getElementById('db-rec-sub').textContent=isFuturo()?'planejado — clique para editar':'clique para editar';
@@ -1540,7 +1553,16 @@ async function renderComparador(){
 // BLOCO 15 — RELATÓRIO
 // ============================================================
 async function renderRelatorio(){
-  var gs=await carregarGastos();var rec=await carregarReceita();
+  var gs=await carregarGastos();
+  // Buscar receitas lançadas
+  var k=cacheKey();
+  if(!cacheReceitasLanc[k]){
+    var rr=await sbGet('receitas_lanc','user_id=eq.'+sbUser.id+'&ano=eq.'+MESES_ANOS[mesVisto].ano+'&mes=eq.'+MESES_ANOS[mesVisto].mes);
+    cacheReceitasLanc[k]=Array.isArray(rr)?rr:[];
+  }
+  var totRlRel=(cacheReceitasLanc[k]||[]).reduce(function(a,r){return a+(+r.valor);},0);
+  var recManual=await carregarReceita();
+  var rec=totRlRel||recManual;
   var t=gs.reduce(function(a,g){return a+(+g.valor);},0),p=Math.max(0,rec-t);
   document.getElementById('rel-res').innerHTML=
     '<div class="rrow"><span>Receita</span><span style="color:#1D9E75">'+fmtVal(rec)+'</span></div>'+
@@ -1559,6 +1581,7 @@ document.getElementById('btn-gerar').addEventListener('click',async function(){
   document.getElementById('rel-ia').innerHTML='<span style="color:var(--tx3)">Analisando '+getMesLabel()+'...</span>';
   try{
     var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Análise em 3 tópicos com emojis. Português direto.'},{role:'user',content:'Mês: '+getMesLabel()+'. Receita '+fmtVal(rec)+', Gastos '+fmtVal(t)+', Saldo '+fmtVal(Math.max(0,rec-t))+'. '+(isFuturo()?'Mês futuro de planejamento.':'')}]})});
+    if(!r.ok)throw new Error('Status '+r.status);
     var d=await r.json();
     document.getElementById('rel-ia').innerHTML='<div style="white-space:pre-line">'+(d.choices&&d.choices[0]?d.choices[0].message.content:'Erro na resposta.')+'</div>';
   }catch(e){document.getElementById('rel-ia').innerHTML='<span style="color:#E24B4A">Erro ao conectar com a IA.</span>';}
@@ -1663,16 +1686,11 @@ async function renderCalendario(){
   var mCal=MESES_ANOS[calMesVisto];
   var kCal=mCal.ano+'-'+mCal.mes;
   var gs=cacheGastos[kCal]||[];
-  // Carregar gastos do mês do calendário se não estiver em cache
-  if(!cacheGastos[kCal]){
-    var rg=await sbGet('gastos','user_id=eq.'+sbUser.id+'&ano=eq.'+mCal.ano+'&mes=eq.'+mCal.mes);
-    gs=Array.isArray(rg)?rg:[];cacheGastos[kCal]=gs;
-  }
-  // Carregar receitas do mês do calendário
-  if(!cacheReceitasLanc[kCal]){
-    var rrr=await sbGet('receitas_lanc','user_id=eq.'+sbUser.id+'&ano=eq.'+mCal.ano+'&mes=eq.'+mCal.mes);
-    cacheReceitasLanc[kCal]=Array.isArray(rrr)?rrr:[];
-  }
+  // Sempre recarregar dados do mês do calendário
+  var rg=await sbGet('gastos','user_id=eq.'+sbUser.id+'&ano=eq.'+mCal.ano+'&mes=eq.'+mCal.mes);
+  gs=Array.isArray(rg)?rg:[];cacheGastos[kCal]=gs;
+  var rrr=await sbGet('receitas_lanc','user_id=eq.'+sbUser.id+'&ano=eq.'+mCal.ano+'&mes=eq.'+mCal.mes);
+  cacheReceitasLanc[kCal]=Array.isArray(rrr)?rrr:[];
   var rl=cacheReceitasLanc[kCal]||[];
   // Adicionar gastos ao grid do calendário baseado na data_str
   gs.forEach(function(g){
@@ -1803,8 +1821,21 @@ async function sendChat(){
   try{
     var gs=await carregarGastos();var rec=await carregarReceita();
     var t=gs.reduce(function(a,g){return a+(+g.valor);},0);
-    var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Mês: '+getMesLabel()+'. Receita: '+fmtVal(rec)+', Gastos: '+fmtVal(t)+'. Português, amigável, máx 3 parágrafos.'}].concat(chatHistory.slice(-6))})});
-    var d=await r.json();
+    var iaResponse;
+    try{
+      var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Mês: '+getMesLabel()+'. Receita: '+fmtVal(rec)+', Gastos: '+fmtVal(t)+'. Português, amigável, máx 3 parágrafos.'}].concat(chatHistory.slice(-6))})});
+      if(!r.ok)throw new Error('Status '+r.status);
+      iaResponse=await r.json();
+    }catch(iaErr){
+      console.warn('Erro /api/ia:',iaErr);
+      document.getElementById('dig').classList.remove('vis');
+      var errEl=document.createElement('div');errEl.className='bub-ai';
+      errEl.innerHTML='Erro ao conectar com a IA. Verifique se o app está hospedado na Vercel e se a variável <b>GROQ_API_KEY</b> está configurada em Settings → Environment Variables.';
+      document.getElementById('msgs').appendChild(errEl);
+      document.getElementById('msgs').scrollTop=99999;
+      return;
+    }
+    var d=iaResponse;
     document.getElementById('dig').classList.remove('vis');
     var resp=d.choices&&d.choices[0]?d.choices[0].message.content:'Não entendi. Pode reformular?';
     chatHistory.push({role:'assistant',content:resp});

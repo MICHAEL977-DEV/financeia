@@ -401,6 +401,7 @@ body.dk .adm-stat.gold{background:#2a1a00}
     <span class="ng">Controle</span>
     <button class="nb" id="btn-gastos"><i class="ti ti-receipt"></i> <span>Gastos</span></button>
     <button class="nb" id="btn-receitas"><i class="ti ti-trending-up"></i> <span>Receitas</span></button>
+    <button class="nb" id="btn-investimentos"><i class="ti ti-trending-up"></i> <span>Investimentos</span><i class="ti ti-lock nb-lock" id="lk-investimentos"></i></button>
     <button class="nb" id="btn-dividas"><i class="ti ti-credit-card"></i> <span>Dívidas</span><i class="ti ti-lock nb-lock" id="lk-dividas"></i></button>
     <button class="nb" id="btn-metas"><i class="ti ti-target"></i> <span>Metas</span><i class="ti ti-lock nb-lock" id="lk-metas"></i></button>
     <button class="nb" id="btn-orcamento"><i class="ti ti-adjustments-horizontal"></i> <span>Orçamento</span><i class="ti ti-lock nb-lock" id="lk-orcamento"></i></button>
@@ -447,6 +448,16 @@ body.dk .adm-stat.gold{background:#2a1a00}
       <div class="g2">
         <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-chart-bar"></i> Por categoria</div></div><div id="db-bars"></div></div>
         <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-target"></i> Metas</div></div><div id="db-metas"></div></div>
+      </div>
+      <div class="card" id="db-invest-card" style="display:none">
+        <div class="card-tt">
+          <div class="card-tl"><i class="ti ti-trending-up"></i> Investimentos</div>
+          <button id="btn-ocultar-inv-db" style="background:var(--inp);border:.5px solid var(--brd);border-radius:6px;padding:3px 10px;cursor:pointer;color:var(--tx3);font-size:11px;font-family:inherit">Ocultar</button>
+        </div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap">
+          <div><div style="font-size:11px;color:var(--tx3);margin-bottom:3px">Total investido</div><div style="font-size:18px;font-weight:700;color:var(--tx)" id="db-inv-total">R$ 0,00</div></div>
+          <div><div style="font-size:11px;color:var(--tx3);margin-bottom:3px">Rendimento</div><div style="font-size:18px;font-weight:700" id="db-inv-rend">R$ 0,00</div></div>
+        </div>
       </div>
       <div class="card">
         <div class="card-tt">
@@ -508,6 +519,36 @@ body.dk .adm-stat.gold{background:#2a1a00}
       <div class="g2">
         <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-arrows-diff"></i> Entradas x Saídas</div></div><div id="rec-vs-desp"></div></div>
         <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-chart-pie"></i> Fontes de receita</div></div><div id="rec-fontes"></div></div>
+      </div>
+    </div>
+
+    <!-- INVESTIMENTOS -->
+    <div class="pag" id="pag-investimentos">
+      <div class="g2" style="margin-bottom:1rem">
+        <div class="mc" style="background:linear-gradient(135deg,#062e20,#0F6E56);color:#fff;cursor:pointer" id="card-inv-total">
+          <div class="mc-lb" style="color:rgba(255,255,255,.6)"><i class="ti ti-trending-up"></i> Total investido</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="mc-vl" id="inv-total-val" style="color:#fff">R$ 0,00</div>
+            <button id="btn-ocultar-inv" style="background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:3px 8px;cursor:pointer;color:rgba(255,255,255,.7);font-size:11px">Ocultar</button>
+          </div>
+          <div class="mc-sb" style="color:rgba(255,255,255,.5)" id="inv-total-sub">0 aplicações</div>
+        </div>
+        <div class="mc">
+          <div class="mc-lb"><i class="ti ti-chart-line"></i> Rendimento total</div>
+          <div class="mc-vl up" id="inv-rend-val">R$ 0,00</div>
+          <div class="mc-sb up" id="inv-rend-pct">+0%</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-tt">
+          <div class="card-tl"><i class="ti ti-building-bank"></i> Aplicações</div>
+          <button class="btn-a" id="btn-add-inv"><i class="ti ti-plus"></i> Nova aplicação</button>
+        </div>
+        <div id="inv-hd" style="display:grid;grid-template-columns:1fr 100px 100px 90px 28px;gap:8px;font-size:11px;color:var(--tx3);padding-bottom:8px;border-bottom:.5px solid var(--brd);text-transform:uppercase;letter-spacing:.04em">
+          <span>Descrição</span><span style="text-align:right">Aplicado</span><span style="text-align:right">Atual</span><span style="text-align:right">Rend.</span><span></span>
+        </div>
+        <div id="inv-list"></div>
+        <div class="tot"><span>Total</span><span id="inv-tot-bottom">R$ 0,00</span></div>
       </div>
     </div>
 
@@ -690,9 +731,9 @@ var chatHistory = [];
   }
 })();
 
-var PAGES  = ['dashboard','gastos','receitas','dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia','upgrade','admin'];
-var TITLES = {dashboard:'Visão geral',gastos:'Controle de gastos',receitas:'Controle de receitas',dividas:'Controle de dívidas',metas:'Metas financeiras',orcamento:'Orçamento mensal',comparador:'Comparador de meses',relatorio:'Relatório mensal',historico:'Histórico mensal',calendario:'Calendário financeiro',simulador:'Simulador de investimentos',ia:'Consultor IA',upgrade:'Seja Premium',admin:'Administração'};
-var ABAS_PREMIUM = ['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
+var PAGES  = ['dashboard','gastos','receitas','investimentos','dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia','upgrade','admin'];
+var TITLES = {dashboard:'Visão geral',gastos:'Controle de gastos',receitas:'Controle de receitas',investimentos:'Investimentos',dividas:'Controle de dívidas',metas:'Metas financeiras',orcamento:'Orçamento mensal',comparador:'Comparador de meses',relatorio:'Relatório mensal',historico:'Histórico mensal',calendario:'Calendário financeiro',simulador:'Simulador de investimentos',ia:'Consultor IA',upgrade:'Seja Premium',admin:'Administração'};
+var ABAS_PREMIUM = ['investimentos','dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
 
 // ============================================================
 // BLOCO 2 — FUNÇÕES UTILITÁRIAS (sem dependências)
@@ -1025,11 +1066,107 @@ document.getElementById('btn-add-receita').addEventListener('click',async functi
   renderReceitas();
 });
 
+// ============================================================
+// BLOCO INVESTIMENTOS
+// ============================================================
+var cacheInvest = null;
+var investOculto = false;
+
+async function renderInvestimentos(){
+  if(!cacheInvest){
+    var r=await sbGet('investimentos','user_id=eq.'+sbUser.id+'&order=criado_em.asc');
+    cacheInvest=Array.isArray(r)?r:[];
+  }
+  var totAplicado=cacheInvest.reduce(function(a,i){return a+(+i.aplicado);},0);
+  var totAtual=cacheInvest.reduce(function(a,i){return a+(+i.atual);},0);
+  var totRend=totAtual-totAplicado;
+  var pctRend=totAplicado>0?((totRend/totAplicado)*100).toFixed(2):0;
+  // Cards do topo
+  var valEl=document.getElementById('inv-total-val');
+  if(valEl)valEl.textContent=investOculto?'••••••':fmtVal(totAtual);
+  var subEl=document.getElementById('inv-total-sub');
+  if(subEl)subEl.textContent=cacheInvest.length+' aplicação'+(cacheInvest.length!==1?'ões':'');
+  var rendEl=document.getElementById('inv-rend-val');
+  if(rendEl){rendEl.textContent=fmtVal(totRend);rendEl.style.color=totRend>=0?'#1D9E75':'#E24B4A';}
+  var pctEl=document.getElementById('inv-rend-pct');
+  if(pctEl){pctEl.textContent=(totRend>=0?'+':'')+pctRend+'%';pctEl.style.color=totRend>=0?'#1D9E75':'#E24B4A';}
+  var totBot=document.getElementById('inv-tot-bottom');
+  if(totBot)totBot.textContent=investOculto?'••••••':fmtVal(totAtual);
+  // Lista
+  var container=document.getElementById('inv-list');
+  if(!container)return;
+  container.innerHTML='';
+  if(!cacheInvest.length){
+    container.innerHTML='<div style="font-size:13px;padding:16px 0;color:var(--tx3);text-align:center">Nenhuma aplicação. Clique em + Nova aplicação.</div>';
+    return;
+  }
+  cacheInvest.forEach(function(inv){
+    var rend=(+inv.atual)-(+inv.aplicado);
+    var pct=+inv.aplicado>0?(rend/(+inv.aplicado)*100).toFixed(2):0;
+    var row=document.createElement('div');
+    row.style.cssText='display:grid;grid-template-columns:1fr 100px 100px 90px 28px;gap:8px;align-items:center;font-size:13px;padding:8px 0;border-bottom:.5px solid var(--brd)';
+    // Descrição
+    var s1=document.createElement('span');
+    var inpD=document.createElement('input');
+    inpD.style.cssText='font-size:13px;border:none;border-bottom:1px dashed #9FE1CB;background:transparent;outline:none;color:var(--tx);width:100%';
+    inpD.value=inv.descricao;
+    inpD.addEventListener('change',function(){sbPatch('investimentos',{descricao:this.value},'id',inv.id);inv.descricao=this.value;});
+    s1.appendChild(inpD);
+    // Aplicado
+    var s2=document.createElement('span');s2.style.textAlign='right';
+    var inpAp=document.createElement('input');
+    inpAp.style.cssText='font-size:12px;border:none;border-bottom:1px dashed #9FE1CB;background:transparent;outline:none;color:var(--tx);width:90px;text-align:right';
+    inpAp.type='number';inpAp.step='0.01';inpAp.value=(+inv.aplicado).toFixed(2);
+    inpAp.addEventListener('change',function(){
+      var v=Math.round((parseFloat(this.value)||0)*100)/100;
+      sbPatch('investimentos',{aplicado:v},'id',inv.id);inv.aplicado=v;renderInvestimentos();
+    });
+    s2.appendChild(inpAp);
+    // Atual
+    var s3=document.createElement('span');s3.style.textAlign='right';
+    var inpAt=document.createElement('input');
+    inpAt.style.cssText='font-size:12px;border:none;border-bottom:1px dashed #9FE1CB;background:transparent;outline:none;color:var(--tx);width:90px;text-align:right';
+    inpAt.type='number';inpAt.step='0.01';inpAt.value=(+inv.atual).toFixed(2);
+    inpAt.addEventListener('change',function(){
+      var v=Math.round((parseFloat(this.value)||0)*100)/100;
+      sbPatch('investimentos',{atual:v},'id',inv.id);inv.atual=v;renderInvestimentos();
+    });
+    s3.appendChild(inpAt);
+    // Rendimento
+    var s4=document.createElement('span');s4.style.cssText='text-align:right;font-size:11px;font-weight:600;color:'+(rend>=0?'#1D9E75':'#E24B4A');
+    s4.textContent=(rend>=0?'+':'')+pct+'%';
+    // Del
+    var s5=document.createElement('span');
+    var btnD=document.createElement('button');btnD.className='btn-d';btnD.innerHTML='<i class="ti ti-trash"></i>';
+    btnD.addEventListener('click',async function(){
+      if(!confirm('Excluir esta aplicação?'))return;
+      await sbDelete('investimentos','id',inv.id);
+      cacheInvest=cacheInvest.filter(function(x){return x.id!==inv.id;});
+      renderInvestimentos();
+    });
+    s5.appendChild(btnD);
+    row.appendChild(s1);row.appendChild(s2);row.appendChild(s3);row.appendChild(s4);row.appendChild(s5);
+    container.appendChild(row);
+  });
+}
+
+document.getElementById('btn-add-inv').addEventListener('click',async function(){
+  var r=await sbPost('investimentos',{user_id:sbUser.id,descricao:'Nova aplicação',aplicado:0,atual:0,tipo:'Renda Fixa'});
+  if(Array.isArray(r)&&r.length){if(!cacheInvest)cacheInvest=[];cacheInvest.push(r[0]);}
+  renderInvestimentos();
+});
+
+document.getElementById('btn-ocultar-inv').addEventListener('click',function(){
+  investOculto=!investOculto;
+  this.textContent=investOculto?'Mostrar':'Ocultar';
+  renderInvestimentos();
+});
+
 document.getElementById('btn-logout').addEventListener('click',function(){
   if(!confirm('Sair do FinanceIA?'))return;
   fetch(SB_URL+'/auth/v1/logout',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+sbToken}});
   sbToken=null;sbUser=null;sbPerfil=null;
-  cacheGastos={};cacheReceitas={};cacheReceitasLanc={};cacheDividas=null;cacheMetas=null;cacheOrc=null;cacheEventos={};
+  cacheGastos={};cacheReceitas={};cacheReceitasLanc={};cacheDividas=null;cacheMetas=null;cacheOrc=null;cacheEventos={};cacheInvest=null;
   chatHistory=[];
   // Limpar mensagens do chat
   var msgsEl=document.getElementById('msgs');
@@ -1088,6 +1225,7 @@ function irPara(id){
   if(id==='dashboard'){updDB();renderGrafico();}
   if(id==='gastos'){curCat='todos';document.querySelectorAll('#tabs-cat .tab').forEach(function(t,i){t.classList.toggle('ativo',i===0);});renderGastos();}
   if(id==='receitas'){document.getElementById('receitas-mes-label').textContent=getMesLabel();renderReceitas();}
+  if(id==='investimentos')renderInvestimentos();
   if(id==='dividas')renderDividas();
   if(id==='metas')renderMetas();
   if(id==='orcamento')renderOrc();
@@ -1121,7 +1259,7 @@ function iniciarApp(){
   var btnUp=document.getElementById('btn-upgrade-sb');
   if(btnUp)btnUp.style.display=isPremium()?'none':'flex';
   // Cadeados
-  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
+  var locks=['investimentos','dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
   locks.forEach(function(id){
     var lk=document.getElementById('lk-'+id);
     if(lk)lk.style.display=isPremium()?'none':'inline';
@@ -1311,53 +1449,26 @@ function gRow(g){
   var spDel=document.createElement('span');
   var btnDel=document.createElement('button');btnDel.className='btn-d';btnDel.innerHTML='<i class="ti ti-trash"></i>';
   btnDel.addEventListener('click',async function(){
-    // Verificar se há lançamentos com o mesmo nome nos meses futuros
-    var temFuturos=false;
-    if(mesVisto<MES_ATUAL_IDX+1){
-      for(var fi=mesVisto+1;fi<MESES_ANOS.length;fi++){
-        var fk=MESES_ANOS[fi].ano+'-'+MESES_ANOS[fi].mes;
-        var fg=cacheGastos[fk];
-        if(fg&&fg.some(function(x){return x.descricao===g.descricao&&x.categoria===g.categoria;})){
-          temFuturos=true;break;
-        }
-      }
-    }
-    var msgConf='Excluir este lançamento?';
-    if(temFuturos)msgConf='Excluir este lançamento?\n\nOK = Excluir apenas este mês\n(Para excluir dos meses futuros, clique em cada mês)';
-    var excluirFut=false;
-    if(temFuturos){
-      var opcao=confirm('Este lançamento "'+g.descricao+'" também existe nos meses futuros.\n\nOK = Excluir ESTE e os PRÓXIMOS meses\nCancelar = Excluir só este mês');
-      excluirFut=opcao;
-    } else {
-      if(!confirm('Excluir este lançamento?'))return;
-    }
-    // Excluir do mês atual
+    var excluirFut=confirm('Excluir "'+g.descricao+'"?\n\nOK = Excluir ESTE e os PRÓXIMOS meses (lançamento fixo)\nCancelar = Excluir SÓ ESTE mês');
+    // Excluir do mês atual sempre
     await sbDelete('gastos','id',g.id);
     var k=cacheKey();
     cacheGastos[k]=(cacheGastos[k]||[]).filter(function(x){return x.id!==g.id;});
-    // Excluir dos meses futuros se solicitado
     if(excluirFut){
-      for(var fi2=mesVisto+1;fi2<MESES_ANOS.length;fi2++){
-        var mx2=MESES_ANOS[fi2];
-        var fk2=mx2.ano+'-'+mx2.mes;
-        var fg2=cacheGastos[fk2];
-        if(fg2){
-          var iguais=fg2.filter(function(x){return x.descricao===g.descricao&&x.categoria===g.categoria;});
-          for(var ii=0;ii<iguais.length;ii++){
-            await sbDelete('gastos','id',iguais[ii].id);
-          }
-          cacheGastos[fk2]=fg2.filter(function(x){return x.descricao!==g.descricao||x.categoria!==g.categoria;});
+      // Buscar e deletar nos meses futuros direto do banco
+      var mAtual=MESES_ANOS[mesVisto];
+      // Deletar todos os registros com mesma descrição e categoria nos meses futuros
+      var rFut=await fetch(SB_URL+'/rest/v1/gastos?user_id=eq.'+sbUser.id+'&descricao=eq.'+encodeURIComponent(g.descricao)+'&categoria=eq.'+encodeURIComponent(g.categoria)+'&or=(ano.gt.'+mAtual.ano+',and(ano.eq.'+mAtual.ano+',mes.gt.'+mAtual.mes+'))',{method:'DELETE',headers:sbHeaders()});
+      // Limpar cache dos meses futuros
+      for(var fi=mesVisto+1;fi<MESES_ANOS.length;fi++){
+        var fk=MESES_ANOS[fi].ano+'-'+MESES_ANOS[fi].mes;
+        if(cacheGastos[fk]){
+          cacheGastos[fk]=cacheGastos[fk].filter(function(x){return x.descricao!==g.descricao||x.categoria!==g.categoria;});
         } else {
-          // Buscar do banco e deletar
-          var r=await sbGet('gastos','user_id=eq.'+sbUser.id+'&ano=eq.'+mx2.ano+'&mes=eq.'+mx2.mes+'&descricao=eq.'+encodeURIComponent(g.descricao));
-          if(Array.isArray(r)){
-            for(var ii2=0;ii2<r.length;ii2++){
-              await sbDelete('gastos','id',r[ii2].id);
-            }
-          }
+          delete cacheGastos[fk];
         }
       }
-      alert('Lançamento excluído deste e dos meses futuros!');
+      alert('Excluído deste e dos próximos meses!');
     }
     renderGastos();
   });
@@ -1396,7 +1507,7 @@ document.getElementById('btn-add-gasto').addEventListener('click',async function
     if(descLanc===null)return;
     if(!descLanc)descLanc='Lançamento fixo';
     diaLanc=(prompt('Dia do vencimento (1 a 31):','1')||'1').padStart(2,'0');
-    valorLanc=Math.round((parseFloat(prompt('Valor R$:','0'))||0)*100)/100;
+    var vStr=(prompt('Valor R$ (use ponto ou vírgula para centavos, ex: 88.70):','0')||'0').replace(',','.');valorLanc=Math.round((parseFloat(vStr)||0)*100)/100;
     var qtdM=parseInt(prompt('Repetir por quantos meses?','12'))||12;
     mesesLanc=Math.min(qtdM,MESES_ANOS.length-mesVisto);
   } else {

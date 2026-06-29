@@ -675,6 +675,9 @@ var SB_URL  = 'https://pnntrciumzezombujhmh.supabase.co';
 var SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBubnRyY2l1bXplem9tYnVqaG1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0Mjc2OTksImV4cCI6MjA5ODAwMzY5OX0.hACQkZDlVUosqGYxFdDisKS4nDrtt4qRKqrakbXxNmk';
 // Chave do Groq protegida no servidor — chamadas vão para /api/ia
 
+// E-mails de admin
+var ADMIN_EMAILS=['michael.douglas977@outlook.com.br'];
+
 // ============================================================
 // SUPABASE HELPERS
 // ============================================================
@@ -1712,7 +1715,6 @@ var isDark=false;
 // INICIAR APP
 // ============================================================
 // E-mails de admin (adicione o seu aqui)
-var ADMIN_EMAILS=['michael.douglas977@outlook.com.br'];
 
 function isPremium(){return isAdmin()||(sbPerfil&&sbPerfil.plano==='premium');}
 function isAdmin(){return sbUser&&(ADMIN_EMAILS.includes(sbUser.email)||(sbPerfil&&sbPerfil.perfil==='adm'));}

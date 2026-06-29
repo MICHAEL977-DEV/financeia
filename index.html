@@ -1029,7 +1029,11 @@ document.getElementById('btn-logout').addEventListener('click',function(){
   if(!confirm('Sair do FinanceIA?'))return;
   fetch(SB_URL+'/auth/v1/logout',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+sbToken}});
   sbToken=null;sbUser=null;sbPerfil=null;
-  cacheGastos={};cacheReceitas={};cacheReceitasLanc={};cacheDividas=null;cacheMetas=null;cacheOrc=null;cacheEventos={};chatHistory=[];
+  cacheGastos={};cacheReceitas={};cacheReceitasLanc={};cacheDividas=null;cacheMetas=null;cacheOrc=null;cacheEventos={};
+  chatHistory=[];
+  // Limpar mensagens do chat
+  var msgsEl=document.getElementById('msgs');
+  if(msgsEl)msgsEl.innerHTML='<div class="bub-ai">Olá! Sou seu consultor financeiro. Como posso ajudar?</div>';
   var saved=carregarCredenciais();
   document.getElementById('app').classList.remove('vis');
   document.getElementById('login-screen').classList.add('vis');
@@ -1307,9 +1311,54 @@ function gRow(g){
   var spDel=document.createElement('span');
   var btnDel=document.createElement('button');btnDel.className='btn-d';btnDel.innerHTML='<i class="ti ti-trash"></i>';
   btnDel.addEventListener('click',async function(){
-    if(!confirm('Excluir este lançamento?'))return;
+    // Verificar se há lançamentos com o mesmo nome nos meses futuros
+    var temFuturos=false;
+    if(mesVisto<MES_ATUAL_IDX+1){
+      for(var fi=mesVisto+1;fi<MESES_ANOS.length;fi++){
+        var fk=MESES_ANOS[fi].ano+'-'+MESES_ANOS[fi].mes;
+        var fg=cacheGastos[fk];
+        if(fg&&fg.some(function(x){return x.descricao===g.descricao&&x.categoria===g.categoria;})){
+          temFuturos=true;break;
+        }
+      }
+    }
+    var msgConf='Excluir este lançamento?';
+    if(temFuturos)msgConf='Excluir este lançamento?\n\nOK = Excluir apenas este mês\n(Para excluir dos meses futuros, clique em cada mês)';
+    var excluirFut=false;
+    if(temFuturos){
+      var opcao=confirm('Este lançamento "'+g.descricao+'" também existe nos meses futuros.\n\nOK = Excluir ESTE e os PRÓXIMOS meses\nCancelar = Excluir só este mês');
+      excluirFut=opcao;
+    } else {
+      if(!confirm('Excluir este lançamento?'))return;
+    }
+    // Excluir do mês atual
     await sbDelete('gastos','id',g.id);
-    var k=cacheKey();cacheGastos[k]=(cacheGastos[k]||[]).filter(function(x){return x.id!==g.id;});
+    var k=cacheKey();
+    cacheGastos[k]=(cacheGastos[k]||[]).filter(function(x){return x.id!==g.id;});
+    // Excluir dos meses futuros se solicitado
+    if(excluirFut){
+      for(var fi2=mesVisto+1;fi2<MESES_ANOS.length;fi2++){
+        var mx2=MESES_ANOS[fi2];
+        var fk2=mx2.ano+'-'+mx2.mes;
+        var fg2=cacheGastos[fk2];
+        if(fg2){
+          var iguais=fg2.filter(function(x){return x.descricao===g.descricao&&x.categoria===g.categoria;});
+          for(var ii=0;ii<iguais.length;ii++){
+            await sbDelete('gastos','id',iguais[ii].id);
+          }
+          cacheGastos[fk2]=fg2.filter(function(x){return x.descricao!==g.descricao||x.categoria!==g.categoria;});
+        } else {
+          // Buscar do banco e deletar
+          var r=await sbGet('gastos','user_id=eq.'+sbUser.id+'&ano=eq.'+mx2.ano+'&mes=eq.'+mx2.mes+'&descricao=eq.'+encodeURIComponent(g.descricao));
+          if(Array.isArray(r)){
+            for(var ii2=0;ii2<r.length;ii2++){
+              await sbDelete('gastos','id',r[ii2].id);
+            }
+          }
+        }
+      }
+      alert('Lançamento excluído deste e dos meses futuros!');
+    }
     renderGastos();
   });
   spDel.appendChild(btnDel);
@@ -1657,7 +1706,7 @@ async function renderRelatorio(){
   document.getElementById('rel-res').innerHTML=
     '<div class="rrow"><span>Receita</span><span style="color:#1D9E75">'+fmtVal(rec)+'</span></div>'+
     '<div class="rrow"><span>Gastos</span><span style="color:#E24B4A">'+fmtVal(t)+'</span></div>'+
-    '<div class="rrow"><span>Saldo</span><span style="color:#1D9E75">'+fmtVal(p)+'</span></div>'+
+    '<div class="rrow"><span>Saldo</span><span style="color:'+(p>=0?'#1D9E75':'#E24B4A')+'">'+fmtVal(p)+'</span></div>'+
     '<div class="rrow"><span>Comprometimento</span><span>'+(rec>0?Math.round(t/rec*100):0)+'%</span></div>'+
     '<div class="rrow"><span>Mês</span><span style="color:#EF9F27">'+getMesLabel()+'</span></div>';
   var ct=CATS.map(function(c){return{cat:c,val:gs.filter(function(g){return g.categoria===c;}).reduce(function(a,g){return a+(+g.valor);},0)};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;});

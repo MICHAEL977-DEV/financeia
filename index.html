@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- FinanceIA v20260627_141113 -->
+<!DOCTYPE html><!-- FinanceIA REBUILD v20260627_141113 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -683,6 +683,10 @@ var SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJl
 
 // E-mails de admin
 var ADMIN_EMAILS=['michael.douglas977@outlook.com.br'];
+window.isPremium=function(){return window.isAdmin()||(sbPerfil&&sbPerfil.plano==='premium');}
+window.isAdmin=function(){return sbUser&&(ADMIN_EMAILS.includes(sbUser.email)||(sbPerfil&&sbPerfil.perfil==='adm'));}
+function isPremium(){return window.isPremium();}
+function isAdmin(){return window.isAdmin();}
 
 // ============================================================
 // SUPABASE HELPERS
@@ -1779,8 +1783,6 @@ var isDark=false;
 // ============================================================
 // E-mails de admin (adicione o seu aqui)
 
-function isPremium(){return isAdmin()||(sbPerfil&&sbPerfil.plano==='premium');}
-function isAdmin(){return sbUser&&(ADMIN_EMAILS.includes(sbUser.email)||(sbPerfil&&sbPerfil.perfil==='adm'));}
 
 // ── PREMIUM LOCK ─────────────────────────────────────────────────────────────
 function premiumLock(titulo){

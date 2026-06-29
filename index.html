@@ -442,11 +442,23 @@ body.dk .adm-stat.gold{background:#2a1a00}
         <div class="mc"><div class="mc-lb"><i class="ti ti-piggy-bank"></i> Saldo</div><div class="mc-vl" id="db-p">R$ 0,00</div><div class="mc-sb up" id="db-pp">0% da renda</div></div>
         <div class="mc gd"><div class="mc-lb"><i class="ti ti-chart-line"></i> Comprometido</div><div class="mc-vl" id="db-comp">0%</div><div class="mc-sb">da receita</div></div>
       </div>
+      <!-- Alertas do dia -->
+      <div id="db-alertas" style="margin-bottom:1rem"></div>
       <div class="g2">
         <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-chart-bar"></i> Por categoria</div></div><div id="db-bars"></div></div>
         <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-target"></i> Metas</div></div><div id="db-metas"></div></div>
       </div>
-      <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-chart-line"></i> Evolução — Receita x Despesa</div></div><div class="cw"><canvas id="chM"></canvas></div></div>
+      <div class="card">
+        <div class="card-tt">
+          <div class="card-tl"><i class="ti ti-chart-line"></i> Evolução — Receita x Despesa</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap" id="grafico-tabs">
+            <button class="tab ativo" data-meses="6">6 meses</button>
+            <button class="tab" data-meses="3">3 meses</button>
+            <button class="tab" data-meses="12">12 meses</button>
+          </div>
+        </div>
+        <div class="cw" style="height:160px"><canvas id="chM"></canvas></div>
+      </div>
     </div>
 
     <!-- GASTOS -->
@@ -1382,7 +1394,7 @@ async function updDB(gs){
   // Atualizar cacheReceitas com o total dos lançamentos
   if(totRl>0){cacheReceitas[k]=totRl;}
   var rec=totRl||await carregarReceita();
-  var t=gs.reduce(function(a,g){return a+(+g.valor);},0),p=Math.max(0,rec-t);
+  var t=gs.reduce(function(a,g){return a+(+g.valor);},0),p=rec-t;
   document.getElementById('db-rec').textContent=fmtVal(rec);
   document.getElementById('db-rec-sub').textContent=isFuturo()?'planejado — clique para editar':'clique para editar';
   document.getElementById('db-g').textContent=fmtVal(t);
@@ -1408,11 +1420,55 @@ async function updDB(gs){
     if(ov.length){nb.classList.add('vis');document.getElementById('ntxt').innerHTML='<b>Atenção!</b> Acima do limite: <b>'+ov.map(function(o){return o.categoria;}).join(', ')+'</b>';}
     else nb.classList.remove('vis');
   }
+  // Alertas do dia — vencimentos e recebimentos
+  var hoje=new Date();
+  var diaHoje=hoje.getDate();
+  var mHoje=hoje.getMonth();
+  var aHoje=hoje.getFullYear();
+  if(MESES_ANOS[mesVisto].mes===mHoje&&MESES_ANOS[mesVisto].ano===aHoje){
+    var vencHoje=gs.filter(function(g){
+      if(!g.data_str)return false;
+      return parseInt(g.data_str.split('/')[0])===diaHoje;
+    });
+    var recHoje=(cacheReceitasLanc[k]||[]).filter(function(r){
+      if(!r.data_str)return false;
+      return parseInt(r.data_str.split('/')[0])===diaHoje;
+    });
+    var alertasEl=document.getElementById('db-alertas');
+    if(alertasEl){
+      alertasEl.innerHTML='';
+      if(vencHoje.length){
+        var divV=document.createElement('div');
+        divV.style.cssText='background:#FCEBEB;border:.5px solid #E24B4A;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#A32D2D;display:flex;align-items:flex-start;gap:10px';
+        divV.innerHTML='<i class="ti ti-bell-ringing" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div><b>Vence hoje!</b> '+vencHoje.map(function(g){return g.descricao+' ('+fmtVal(g.valor)+')';}).join(' • ')+'</div>';
+        alertasEl.appendChild(divV);
+      }
+      if(recHoje.length){
+        var divR=document.createElement('div');
+        divR.style.cssText='background:#E1F5EE;border:.5px solid #1D9E75;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#085041;display:flex;align-items:flex-start;gap:10px';
+        divR.innerHTML='<i class="ti ti-cash" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div><b>A receber hoje!</b> '+recHoje.map(function(r){return r.descricao+' ('+fmtVal(r.valor)+')';}).join(' • ')+'</div>';
+        alertasEl.appendChild(divR);
+      }
+    }
+  } else {
+    var alertasEl2=document.getElementById('db-alertas');
+    if(alertasEl2)alertasEl2.innerHTML='';
+  }
 }
+
+var grafMeses=6; // padrão 6 meses
+document.getElementById('grafico-tabs').addEventListener('click',function(e){
+  var btn=e.target.closest('.tab');if(!btn)return;
+  document.querySelectorAll('#grafico-tabs .tab').forEach(function(t){t.classList.remove('ativo');});
+  btn.classList.add('ativo');
+  grafMeses=parseInt(btn.getAttribute('data-meses'));
+  renderGrafico();
+});
 
 async function renderGrafico(){
   var labels=[],receitas=[],despesas=[];
-  for(var i=0;i<=MES_ATUAL_IDX;i++){
+  var inicioIdx=Math.max(0,MES_ATUAL_IDX-grafMeses+1);
+  for(var i=inicioIdx;i<=MES_ATUAL_IDX;i++){
     var mx=MESES_ANOS[i];var k=mx.ano+'-'+mx.mes;
     if(!cacheGastos[k]){var r=await sbGet('gastos','user_id=eq.'+sbUser.id+'&ano=eq.'+mx.ano+'&mes=eq.'+mx.mes);cacheGastos[k]=Array.isArray(r)?r:[];}
     if(cacheReceitas[k]===undefined){var rr=await sbGet('receitas','user_id=eq.'+sbUser.id+'&ano=eq.'+mx.ano+'&mes=eq.'+mx.mes);cacheReceitas[k]=Array.isArray(rr)&&rr.length?+(rr[0].valor):0;}
@@ -1597,7 +1653,7 @@ async function renderRelatorio(){
   var totRlRel=(cacheReceitasLanc[k]||[]).reduce(function(a,r){return a+(+r.valor);},0);
   var recManual=await carregarReceita();
   var rec=totRlRel||recManual;
-  var t=gs.reduce(function(a,g){return a+(+g.valor);},0),p=Math.max(0,rec-t);
+  var t=gs.reduce(function(a,g){return a+(+g.valor);},0),p=rec-t;
   document.getElementById('rel-res').innerHTML=
     '<div class="rrow"><span>Receita</span><span style="color:#1D9E75">'+fmtVal(rec)+'</span></div>'+
     '<div class="rrow"><span>Gastos</span><span style="color:#E24B4A">'+fmtVal(t)+'</span></div>'+

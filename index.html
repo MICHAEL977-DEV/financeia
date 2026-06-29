@@ -344,7 +344,10 @@ body.dk .adm-stat.gold{background:#2a1a00}
         <label class="login-lbl">E-mail</label>
         <div class="login-inp-wrap"><i class="ti ti-mail"></i><input class="login-inp" id="li-email" type="email" placeholder="seu@email.com" autocomplete="email"/></div>
         <label class="login-lbl">Senha</label>
-        <div class="login-inp-wrap"><i class="ti ti-lock"></i><input class="login-inp" id="li-pass" type="password" placeholder="••••••" autocomplete="current-password"/><button type="button" class="login-eye" id="li-eye" title="Mostrar senha"><i class="ti ti-eye" id="li-eye-ico"></i></button></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+          <div class="login-inp-wrap" style="flex:1;margin-bottom:0"><i class="ti ti-lock"></i><input class="login-inp" id="li-pass" type="password" placeholder="••••••" autocomplete="current-password" style="margin-bottom:0"/></div>
+          <button type="button" id="li-eye" title="Mostrar/ocultar senha" style="background:#f6faf7;border:1.5px solid #cce0d4;border-radius:10px;padding:11px 13px;cursor:pointer;color:#9FE1CB;font-size:16px;flex-shrink:0;display:flex;align-items:center"><i class="ti ti-eye" id="li-eye-ico"></i></button>
+        </div>
         <div class="login-lembrar">
           <label class="login-check-wrap">
             <input type="checkbox" id="li-lembrar"/>
@@ -375,7 +378,10 @@ body.dk .adm-stat.gold{background:#2a1a00}
         <label class="login-lbl">E-mail</label>
         <div class="login-inp-wrap"><i class="ti ti-mail"></i><input class="login-inp" id="cad-email" type="email" placeholder="seu@email.com"/></div>
         <label class="login-lbl">Senha (mínimo 6 caracteres)</label>
-        <div class="login-inp-wrap"><i class="ti ti-lock"></i><input class="login-inp" id="cad-pass" type="password" placeholder="••••••"/><button type="button" class="login-eye" id="cad-eye" title="Mostrar senha"><i class="ti ti-eye" id="cad-eye-ico"></i></button></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+          <div class="login-inp-wrap" style="flex:1;margin-bottom:0"><i class="ti ti-lock"></i><input class="login-inp" id="cad-pass" type="password" placeholder="••••••" style="margin-bottom:0"/></div>
+          <button type="button" id="cad-eye" title="Mostrar/ocultar senha" style="background:#f6faf7;border:1.5px solid #cce0d4;border-radius:10px;padding:11px 13px;cursor:pointer;color:#9FE1CB;font-size:16px;flex-shrink:0;display:flex;align-items:center"><i class="ti ti-eye" id="cad-eye-ico"></i></button>
+        </div>
         <div class="login-err" id="cad-err"><i class="ti ti-alert-circle"></i> <span id="cad-err-txt"></span></div>
         <div class="login-ok" id="cad-ok"><i class="ti ti-check"></i> Conta criada! Verifique seu e-mail.</div>
         <button class="login-btn" id="cad-btn" onclick="fazerCadastro()"><i class="ti ti-user-plus"></i> Criar conta</button>
@@ -691,9 +697,11 @@ function sbHeaders(extra){
 }
 async function sbGet(table,params){
   var qs = typeof params==='string' ? params : Object.keys(params||{}).map(function(k){return k+'='+encodeURIComponent(params[k]);}).join('&');
-  var r = await fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders()});
-  if(!r.ok){console.warn('sbGet error',r.status,table,qs);return [];}
-  return r.json();
+  try{
+    var r = await fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders()});
+    if(!r.ok){console.warn('sbGet error',r.status,table,qs);return [];}
+    return await r.json();
+  }catch(e){console.warn('sbGet catch',e);return [];}
 }
 async function sbPost(table,body){
   var r = await fetch(SB_URL+'/rest/v1/'+table,{method:'POST',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});

@@ -791,6 +791,57 @@ function carregarCredenciais(){
   }
 })();
 
+async function recarregarPerfil(){
+  await carregarPerfil();
+  var pb=document.getElementById('plano-badge');
+  if(pb){
+    var plano=sbPerfil?sbPerfil.plano:'padrao';
+    pb.textContent=plano==='premium'?'Premium':'Padrão';
+    pb.className='plano-badge'+(plano==='padrao'?' padrao':'');
+  }
+  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
+  locks.forEach(function(lid){
+    var lk=document.getElementById('lk-'+lid);
+    if(lk)lk.style.display=isPremium()?'none':'inline';
+  });
+  var btnUpSb=document.getElementById('btn-upgrade-sb');
+  if(btnUpSb)btnUpSb.style.display=isPremium()?'none':'flex';
+  irPara('dashboard');
+}
+
+function iniciarApp(){
+  var nome=sbPerfil?sbPerfil.nome:(sbUser.user_metadata&&sbUser.user_metadata.nome||sbUser.email);
+  document.getElementById('av-letra').textContent=nome.charAt(0).toUpperCase();
+  document.getElementById('user-nome-sb').textContent=nome;
+  var pb=document.getElementById('plano-badge');
+  var plano=sbPerfil?sbPerfil.plano:'padrao';
+  pb.textContent=plano==='premium'?'Premium':'Padrão';
+  pb.className='plano-badge'+(plano==='padrao'?' padrao':'');
+  // Mostrar botão admin só para admins
+  var btnAdm=document.getElementById('btn-admin');
+  if(btnAdm)btnAdm.style.display=isAdmin()?'flex':'none';
+  // Mostrar/ocultar botão upgrade
+  var btnUpSb=document.getElementById('btn-upgrade-sb');
+  if(btnUpSb){
+    btnUpSb.style.display=isPremium()?'none':'flex';
+    btnUpSb.onclick=null;
+    btnUpSb.onclick=function(){irPara('upgrade');};
+  }
+  // Ocultar cadeados na sidebar para premium
+  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
+  locks.forEach(function(id){
+    var lk=document.getElementById('lk-'+id);
+    if(lk)lk.style.display=isPremium()?'none':'inline';
+  });
+  document.getElementById('login-screen').classList.remove('vis');
+  document.getElementById('app').classList.add('vis');
+  atualizarMesUI();
+  irPara('dashboard');
+  // PWA install banner
+  setTimeout(verificarPWA, 2000);
+}
+
+
 async function fazerLogin(){
   var email=document.getElementById('li-email').value.trim();
   var pass=document.getElementById('li-pass').value;
@@ -1730,56 +1781,6 @@ var isDark=false;
 
 function isPremium(){return isAdmin()||(sbPerfil&&sbPerfil.plano==='premium');}
 function isAdmin(){return sbUser&&(ADMIN_EMAILS.includes(sbUser.email)||(sbPerfil&&sbPerfil.perfil==='adm'));}
-
-async function recarregarPerfil(){
-  await carregarPerfil();
-  var pb=document.getElementById('plano-badge');
-  if(pb){
-    var plano=sbPerfil?sbPerfil.plano:'padrao';
-    pb.textContent=plano==='premium'?'Premium':'Padrão';
-    pb.className='plano-badge'+(plano==='padrao'?' padrao':'');
-  }
-  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
-  locks.forEach(function(lid){
-    var lk=document.getElementById('lk-'+lid);
-    if(lk)lk.style.display=isPremium()?'none':'inline';
-  });
-  var btnUpSb=document.getElementById('btn-upgrade-sb');
-  if(btnUpSb)btnUpSb.style.display=isPremium()?'none':'flex';
-  irPara('dashboard');
-}
-
-function iniciarApp(){
-  var nome=sbPerfil?sbPerfil.nome:(sbUser.user_metadata&&sbUser.user_metadata.nome||sbUser.email);
-  document.getElementById('av-letra').textContent=nome.charAt(0).toUpperCase();
-  document.getElementById('user-nome-sb').textContent=nome;
-  var pb=document.getElementById('plano-badge');
-  var plano=sbPerfil?sbPerfil.plano:'padrao';
-  pb.textContent=plano==='premium'?'Premium':'Padrão';
-  pb.className='plano-badge'+(plano==='padrao'?' padrao':'');
-  // Mostrar botão admin só para admins
-  var btnAdm=document.getElementById('btn-admin');
-  if(btnAdm)btnAdm.style.display=isAdmin()?'flex':'none';
-  // Mostrar/ocultar botão upgrade
-  var btnUpSb=document.getElementById('btn-upgrade-sb');
-  if(btnUpSb){
-    btnUpSb.style.display=isPremium()?'none':'flex';
-    btnUpSb.onclick=null;
-    btnUpSb.onclick=function(){irPara('upgrade');};
-  }
-  // Ocultar cadeados na sidebar para premium
-  var locks=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
-  locks.forEach(function(id){
-    var lk=document.getElementById('lk-'+id);
-    if(lk)lk.style.display=isPremium()?'none':'inline';
-  });
-  document.getElementById('login-screen').classList.remove('vis');
-  document.getElementById('app').classList.add('vis');
-  atualizarMesUI();
-  irPara('dashboard');
-  // PWA install banner
-  setTimeout(verificarPWA, 2000);
-}
 
 // ── PREMIUM LOCK ─────────────────────────────────────────────────────────────
 function premiumLock(titulo){

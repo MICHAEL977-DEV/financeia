@@ -748,7 +748,7 @@ var MESES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 var MESES_ANOS  = [];
 var MES_ATUAL_IDX = 5;
 var mesVisto    = 5;
-var calMesVisto = 5;
+var calMesVisto = MES_ATUAL_IDX; // sempre abre no mês atual
 var paginaAtual = 'dashboard';
 var curCat      = 'todos';
 var admUsuarios = [];
@@ -1221,26 +1221,82 @@ document.getElementById('btn-logout').addEventListener('click',function(){
   if(!saved)limparCredenciais();
 });
 
-// Detectar link de reset de senha
+// Detectar link de reset de senha (hash ou query string)
 (function(){
-  var hash=window.location.hash;
-  if(hash&&hash.indexOf('type=recovery')>-1){
-    var params={};
-    hash.replace('#','').split('&').forEach(function(p){var kv=p.split('=');params[kv[0]]=decodeURIComponent(kv[1]||'');});
-    var token=params['access_token'];
-    if(token){
-      setTimeout(function(){
-        var nova=prompt('Digite sua nova senha (mínimo 6 caracteres):');
-        if(!nova||nova.length<6){alert('Senha muito curta.');return;}
-        var conf=prompt('Confirme a nova senha:');
-        if(nova!==conf){alert('As senhas não coincidem.');return;}
-        fetch(SB_URL+'/auth/v1/user',{method:'PUT',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+token},body:JSON.stringify({password:nova})})
-          .then(function(r){return r.json();}).then(function(d){
-            if(d.id){alert('Senha atualizada! Faça login.');window.location.hash='';}
-            else alert('Erro: '+(d.message||'tente novamente'));
-          });
-      },500);
+  // Supabase pode enviar como hash (#) ou query (?token=)
+  var hash=window.location.hash||'';
+  var search=window.location.search||'';
+  var fullStr=hash+search;
+  
+  function getParam(str, key){
+    var parts=str.replace('#','').replace('?','').split('&');
+    for(var i=0;i<parts.length;i++){
+      var kv=parts[i].split('=');
+      if(kv[0]===key)return decodeURIComponent(kv[1]||'');
     }
+    return null;
+  }
+  
+  var tipo=getParam(fullStr,'type');
+  var token=getParam(fullStr,'access_token');
+  
+  if((tipo==='recovery'||tipo==='invite')&&token){
+    // Mostrar modal de redefinição de senha
+    document.addEventListener('DOMContentLoaded',function(){},false);
+    setTimeout(function(){
+      // Esconder login normal e mostrar form de reset
+      var loginBox=document.querySelector('.login-box');
+      if(loginBox){
+        loginBox.innerHTML=
+          '<div style="text-align:center;margin-bottom:1.5rem"><div style="width:56px;height:56px;background:#E1F5EE;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem"><i class="ti ti-lock-open" style="font-size:28px;color:#0F6E56"></i></div>'+
+          '<div style="font-size:18px;font-weight:700;color:#085041;margin-bottom:.25rem">Nova senha</div>'+
+          '<div style="font-size:13px;color:#6b8c84">Digite sua nova senha abaixo</div></div>'+
+          '<label class="login-lbl">Nova senha</label>'+
+          '<div class="login-inp-wrap"><i class="ti ti-lock inp-icon"></i><input class="login-inp has-eye" id="reset-pass" type="password" placeholder="mínimo 6 caracteres"/><button type="button" class="eye-btn" id="reset-eye"><i class="ti ti-eye" id="reset-eye-ico"></i></button></div>'+
+          '<label class="login-lbl">Confirmar senha</label>'+
+          '<div class="login-inp-wrap"><i class="ti ti-lock inp-icon"></i><input class="login-inp" id="reset-conf" type="password" placeholder="repita a senha"/></div>'+
+          '<div class="login-err" id="reset-err"><i class="ti ti-alert-circle"></i> <span id="reset-err-txt"></span></div>'+
+          '<button class="login-btn" id="reset-btn"><i class="ti ti-check"></i> Salvar nova senha</button>';
+        document.getElementById('login-screen').classList.add('vis');
+        document.getElementById('reset-btn').addEventListener('click',async function(){
+          var nova=document.getElementById('reset-pass').value;
+          var conf=document.getElementById('reset-conf').value;
+          var errEl=document.getElementById('reset-err');
+          var errTxt=document.getElementById('reset-err-txt');
+          errEl.classList.remove('vis');
+          if(!nova||nova.length<6){errTxt.textContent='Senha deve ter pelo menos 6 caracteres.';errEl.classList.add('vis');return;}
+          if(nova!==conf){errTxt.textContent='As senhas não coincidem.';errEl.classList.add('vis');return;}
+          var btn=document.getElementById('reset-btn');btn.disabled=true;btn.textContent='Salvando...';
+          try{
+            var r=await fetch(SB_URL+'/auth/v1/user',{
+              method:'PUT',
+              headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+token},
+              body:JSON.stringify({password:nova})
+            });
+            var d=await r.json();
+            if(d.id||d.email){
+              loginBox.innerHTML='<div style="text-align:center;padding:2rem"><div style="font-size:48px;margin-bottom:1rem">✅</div><div style="font-size:18px;font-weight:700;color:#085041;margin-bottom:.5rem">Senha atualizada!</div><div style="font-size:13px;color:#6b8c84;margin-bottom:1.5rem">Faça login com sua nova senha.</div><button class="login-btn" onclick="window.location.href=window.location.origin+window.location.pathname"><i class="ti ti-login"></i> Ir para o login</button></div>';
+            } else {
+              errTxt.textContent=d.message||d.error_description||'Erro ao salvar. Tente novamente.';
+              errEl.classList.add('vis');
+              btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Salvar nova senha';
+            }
+          }catch(e){
+            errTxt.textContent='Erro de conexão: '+e.message;
+            errEl.classList.add('vis');
+            btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Salvar nova senha';
+          }
+        });
+        // Olho de senha no reset
+        document.addEventListener('click',function(e){
+          if(e.target.closest('#reset-eye')){
+            var inp=document.getElementById('reset-pass');
+            var ico=document.getElementById('reset-eye-ico');
+            if(inp&&ico){inp.type=inp.type==='password'?'text':'password';ico.className=inp.type==='password'?'ti ti-eye':'ti ti-eye-off';}
+          }
+        });
+      }
+    },300);
   }
 })();
 
@@ -1290,12 +1346,28 @@ PAGES.forEach(function(p){
 // ============================================================
 function iniciarApp(){
   var nome=sbPerfil?sbPerfil.nome:(sbUser.user_metadata&&sbUser.user_metadata.nome)||sbUser.email;
+  // Usar nome completo do user_metadata se disponível
+  if(sbUser.user_metadata&&sbUser.user_metadata.nome){
+    nome=sbUser.user_metadata.nome;
+  } else if(sbPerfil&&sbPerfil.nome&&sbPerfil.nome!==sbUser.email){
+    nome=sbPerfil.nome;
+  }
   document.getElementById('av-letra').textContent=nome.charAt(0).toUpperCase();
   document.getElementById('user-nome-sb').textContent=nome;
   var pb=document.getElementById('plano-badge');
   var plano=sbPerfil?sbPerfil.plano:'padrao';
-  pb.textContent=plano==='premium'?'Premium':'Padrão';
-  pb.className='plano-badge'+(plano==='padrao'?' padrao':'');
+  if(isAdmin()){
+    pb.textContent='ADM';
+    pb.className='plano-badge';
+    pb.style.cssText='background:linear-gradient(135deg,#EF9F27,#f7b733);color:#412402;font-weight:800;letter-spacing:.05em;box-shadow:0 2px 8px rgba(239,159,39,.4)';
+    // Avatar dourado para admin
+    var avEl=document.getElementById('av-letra');
+    if(avEl)avEl.style.cssText='width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#EF9F27,#f7b733);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#412402;flex-shrink:0;box-shadow:0 2px 8px rgba(239,159,39,.5)';
+  } else {
+    pb.textContent=plano==='premium'?'Premium':'Padrão';
+    pb.className='plano-badge'+(plano==='padrao'?' padrao':'');
+    pb.style.cssText='';
+  }
   // Admin button
   var btnAdm=document.getElementById('btn-admin');
   if(btnAdm)btnAdm.style.display=isAdmin()?'flex':'none';

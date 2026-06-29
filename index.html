@@ -837,9 +837,9 @@ function iniciarApp(){
     });
     document.getElementById('login-screen').classList.remove('vis');
     document.getElementById('app').classList.add('vis');
-    atualizarMesUI();
-    irPara('dashboard');
-    setTimeout(verificarPWA, 2000);
+    if(typeof atualizarMesUI==='function')atualizarMesUI();
+    if(typeof irPara==='function'){irPara('dashboard');}else{setTimeout(function(){irPara('dashboard');},100);}
+    if(typeof verificarPWA==='function')setTimeout(verificarPWA, 2000);
   }, 0);
 }
 

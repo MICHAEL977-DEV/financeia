@@ -434,14 +434,49 @@ body.dk .adm-stat.gold{background:#2a1a00}
     <!-- DASHBOARD -->
     <div class="pag vis" id="pag-dashboard">
       <div class="g4">
-        <div class="mc" style="cursor:pointer" id="card-receita">
-          <div class="mc-lb"><i class="ti ti-trending-up"></i> Receita <i class="ti ti-pencil" style="font-size:10px;margin-left:4px;color:var(--tx3)"></i></div>
-          <div class="mc-vl" id="db-rec">R$ 0,00</div>
-          <div class="mc-sb up" id="db-rec-sub">clique para editar</div>
+        <div class="mc">
+          <div class="mc-lb"><i class="ti ti-trending-up"></i> Receita do mês</div>
+          <div class="mc-vl up" id="db-rec">R$ 0,00</div>
+          <div class="mc-sb" id="db-rec-sub">total de entradas</div>
         </div>
-        <div class="mc"><div class="mc-lb"><i class="ti ti-trending-down"></i> Gastos</div><div class="mc-vl" id="db-g">R$ 0,00</div><div class="mc-sb dn">total do mês</div></div>
-        <div class="mc"><div class="mc-lb"><i class="ti ti-piggy-bank"></i> Saldo</div><div class="mc-vl" id="db-p">R$ 0,00</div><div class="mc-sb up" id="db-pp">0% da renda</div></div>
-        <div class="mc gd"><div class="mc-lb"><i class="ti ti-chart-line"></i> Comprometido</div><div class="mc-vl" id="db-comp">0%</div><div class="mc-sb">da receita</div></div>
+        <div class="mc">
+          <div class="mc-lb"><i class="ti ti-trending-down"></i> Gastos</div>
+          <div class="mc-vl dn" id="db-g">R$ 0,00</div>
+          <div class="mc-sb dn">total do mês</div>
+        </div>
+        <div class="mc">
+          <div class="mc-lb"><i class="ti ti-piggy-bank"></i> Saldo</div>
+          <div class="mc-vl" id="db-p">R$ 0,00</div>
+          <div class="mc-sb" id="db-pp">0% da renda</div>
+        </div>
+        <div class="mc gd">
+          <div class="mc-lb"><i class="ti ti-chart-line"></i> Comprometido</div>
+          <div class="mc-vl" id="db-comp">0%</div>
+          <div class="mc-sb">da receita</div>
+        </div>
+      </div>
+      <!-- Linha 2: Investimentos + Resumo rápido -->
+      <div class="g2" style="margin-bottom:1rem" id="db-inv-row">
+        <div class="mc" style="background:linear-gradient(135deg,#062e20,#0a5c46);color:#fff">
+          <div class="mc-lb" style="color:rgba(255,255,255,.6);justify-content:space-between;display:flex;align-items:center">
+            <span><i class="ti ti-trending-up"></i> Investimentos</span>
+            <button id="btn-ocultar-inv-db" style="background:rgba(255,255,255,.12);border:none;border-radius:5px;padding:2px 8px;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-family:inherit">Ocultar</button>
+          </div>
+          <div class="mc-vl" id="db-inv-total" style="color:#fff;margin-top:4px">R$ 0,00</div>
+          <div style="display:flex;gap:12px;margin-top:4px">
+            <div><span style="font-size:10px;color:rgba(255,255,255,.5)">Aplicado</span><div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.8)" id="db-inv-aplic">R$ 0,00</div></div>
+            <div><span style="font-size:10px;color:rgba(255,255,255,.5)">Rendimento</span><div style="font-size:13px;font-weight:600" id="db-inv-rend">+R$ 0,00</div></div>
+          </div>
+        </div>
+        <div class="mc">
+          <div class="mc-lb"><i class="ti ti-bell"></i> Resumo do mês</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Maior gasto</span><span id="db-maior-gasto" style="color:#E24B4A;font-weight:600">—</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Categoria líder</span><span id="db-cat-lider" style="color:#EF9F27;font-weight:600">—</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Lançamentos</span><span id="db-qtd-lanc" style="font-weight:600">0</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Média diária</span><span id="db-media-dia" style="font-weight:600">R$ 0,00</span></div>
+          </div>
+        </div>
       </div>
       <!-- Alertas do dia -->
       <div id="db-alertas" style="margin-bottom:1rem"></div>
@@ -468,7 +503,7 @@ body.dk .adm-stat.gold{background:#2a1a00}
             <button class="tab" data-meses="12">12 meses</button>
           </div>
         </div>
-        <div class="cw" style="height:160px"><canvas id="chM"></canvas></div>
+        <div class="cw" style="height:140px"><canvas id="chM"></canvas></div>
       </div>
     </div>
 
@@ -1026,6 +1061,9 @@ async function renderReceitas(){
 }
 
 document.getElementById('btn-add-receita').addEventListener('click',async function(){
+  // Verificar limite para plano Padrão
+  var rlAtual=cacheReceitasLanc[getCacheRecKey()]||[];
+  if(!isPremium()&&rlAtual.length>=5){alert('Limite de 5 receitas/mês no plano Padrão.\nAssine o Premium para receitas ilimitadas!');irPara('upgrade');return;}
   var ehFixoR=confirm('Esta receita é FIXA (repete todo mês)?\n\nOK = Sim, fixo mensal\nCancelar = Não, apenas este mês');
   var descLancR, diaLancR, mesesLancR, valorLancR;
   if(ehFixoR){
@@ -1154,6 +1192,12 @@ document.getElementById('btn-add-inv').addEventListener('click',async function()
   var r=await sbPost('investimentos',{user_id:sbUser.id,descricao:'Nova aplicação',aplicado:0,atual:0,tipo:'Renda Fixa'});
   if(Array.isArray(r)&&r.length){if(!cacheInvest)cacheInvest=[];cacheInvest.push(r[0]);}
   renderInvestimentos();
+});
+
+document.getElementById('btn-ocultar-inv-db').addEventListener('click',function(){
+  investOculto=!investOculto;
+  this.textContent=investOculto?'Mostrar':'Ocultar';
+  updDB();
 });
 
 document.getElementById('btn-ocultar-inv').addEventListener('click',function(){
@@ -1334,12 +1378,7 @@ async function carregarReceita(){
   return val;
 }
 
-document.getElementById('card-receita').addEventListener('click',function(){
-  var k=cacheKey();
-  document.getElementById('mrec-val').value=(cacheReceitas[k]||0).toFixed(2);
-  document.getElementById('modal-receita').classList.add('vis');
-  document.getElementById('mrec-val').focus();
-});
+// card-receita não é mais editável — usa soma dos lançamentos da aba Receitas
 document.getElementById('modal-receita').addEventListener('click',function(e){if(e.target===this)this.classList.remove('vis');});
 document.getElementById('mrec-cancel').addEventListener('click',function(){document.getElementById('modal-receita').classList.remove('vis');});
 document.getElementById('mrec-ok').addEventListener('click',async function(){
@@ -1372,9 +1411,9 @@ async function renderGastos(){
   var contEl=document.getElementById('gastos-contador');
   if(contEl){
     if(!isPremium()){
-      var rest=Math.max(0,10-gs.length);
-      contEl.textContent='('+gs.length+'/10 — '+rest+' restantes)';
-      contEl.style.color=gs.length>=10?'#E24B4A':gs.length>=8?'#EF9F27':'var(--tx3)';
+      var rest=Math.max(0,5-gs.length);
+      contEl.textContent='('+gs.length+'/5 — '+rest+' restantes)';
+      contEl.style.color=gs.length>=5?'#E24B4A':gs.length>=4?'#EF9F27':'var(--tx3)';
     } else {
       contEl.textContent='('+gs.length+' lançamentos)';contEl.style.color='var(--tx3)';
     }
@@ -1496,7 +1535,7 @@ document.getElementById('tabs-cat').addEventListener('click',function(e){
 
 document.getElementById('btn-add-gasto').addEventListener('click',async function(){
   var gs=await carregarGastos();
-  if(!isPremium()&&gs.length>=10){alert('Limite de 10 lançamentos/mês no plano Padrão.\nAssine o Premium para lançamentos ilimitados!');irPara('upgrade');return;}
+  if(!isPremium()&&gs.length>=5){alert('Limite de 5 lançamentos/mês no plano Padrão.\nAssine o Premium para lançamentos ilimitados!');irPara('upgrade');return;}
   if(!isPremium()&&isFuturo()){alert('Lançamentos em meses futuros é um recurso Premium!');irPara('upgrade');return;}
   var catAtiva=curCat==='todos'?'Alimentação':curCat;
   // Perguntar se é fixo
@@ -1579,6 +1618,43 @@ async function updDB(gs){
     var nb=document.getElementById('notif');
     if(ov.length){nb.classList.add('vis');document.getElementById('ntxt').innerHTML='<b>Atenção!</b> Acima do limite: <b>'+ov.map(function(o){return o.categoria;}).join(', ')+'</b>';}
     else nb.classList.remove('vis');
+  }
+  // Atualizar card de investimentos no dashboard
+  if(cacheInvest&&cacheInvest.length){
+    var totAplic=cacheInvest.reduce(function(a,i){return a+(+i.aplicado);},0);
+    var totAtualInv=cacheInvest.reduce(function(a,i){return a+(+i.atual);},0);
+    var totRendInv=totAtualInv-totAplic;
+    var invTotEl=document.getElementById('db-inv-total');
+    var invAplEl=document.getElementById('db-inv-aplic');
+    var invRendEl=document.getElementById('db-inv-rend');
+    if(invTotEl)invTotEl.textContent=investOculto?'••••••':fmtVal(totAtualInv);
+    if(invAplEl)invAplEl.textContent=investOculto?'••••••':fmtVal(totAplic);
+    if(invRendEl){
+      invRendEl.textContent=investOculto?'••••':(totRendInv>=0?'+':'')+fmtVal(totRendInv);
+      invRendEl.style.color=totRendInv>=0?'#9FE1CB':'#E24B4A';
+    }
+    document.getElementById('db-inv-row').style.display='grid';
+  } else {
+    // Buscar investimentos em background
+    sbGet('investimentos','user_id=eq.'+sbUser.id).then(function(r){
+      if(Array.isArray(r)&&r.length){
+        cacheInvest=r;updDB(gs);
+      }
+    });
+  }
+  // Resumo rápido do mês
+  if(gs.length){
+    var maiorGasto=gs.reduce(function(a,g){return(+g.valor)>(+a.valor)?g:a;},gs[0]);
+    var porCatResumo={};gs.forEach(function(g){porCatResumo[g.categoria]=(porCatResumo[g.categoria]||0)+(+g.valor);});
+    var catLider=Object.keys(porCatResumo).reduce(function(a,b){return porCatResumo[b]>porCatResumo[a]?b:a;});
+    var diasNoMes=new Date(MESES_ANOS[mesVisto].ano,MESES_ANOS[mesVisto].mes+1,0).getDate();
+    var totalGastos=gs.reduce(function(a,g){return a+(+g.valor);},0);
+    var el1=document.getElementById('db-maior-gasto');var el2=document.getElementById('db-cat-lider');
+    var el3=document.getElementById('db-qtd-lanc');var el4=document.getElementById('db-media-dia');
+    if(el1)el1.textContent=maiorGasto.descricao.slice(0,15)+(maiorGasto.descricao.length>15?'...':'')+' ('+fmtVal(maiorGasto.valor)+')';
+    if(el2)el2.textContent=catLider;
+    if(el3)el3.textContent=gs.length+' lançamento'+(gs.length!==1?'s':'');
+    if(el4)el4.textContent=fmtVal(totalGastos/diasNoMes)+'/dia';
   }
   // Alertas do dia — vencimentos e recebimentos
   var hoje=new Date();

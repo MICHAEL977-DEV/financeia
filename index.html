@@ -921,15 +921,18 @@ async function renderReceitas(){
       var prefR=document.createElement('span');prefR.style.cssText='font-size:13px;color:#1D9E75;font-weight:500';prefR.textContent='+ ';
       var inpV=document.createElement('input');inpV.className='iln';inpV.type='number';inpV.step='0.01';inpV.style.color='#1D9E75';
       inpV.value=(+r.valor).toFixed(2);
-      inpV.addEventListener('change',function(){
+      inpV.addEventListener('change',async function(){
         var v=Math.round((parseFloat(this.value)||0)*100)/100;
-        sbPatch('receitas_lanc',{valor:v},'id',r.id);r.valor=v;
-        // Atualizar receita total do mês
-        var totNovo=cacheReceitasLanc[getCacheRecKey()].reduce(function(a,x){return a+(+x.valor);},0);
+        await sbPatch('receitas_lanc',{valor:v},'id',r.id);r.valor=v;
+        // Atualizar receita total do mês automaticamente
+        var k=getCacheRecKey();
+        var totNovo=(cacheReceitasLanc[k]||[]).reduce(function(a,x){return a+(+x.valor);},0);
         var mAtual=MESES_ANOS[mesVisto];
-        sbUpsert('receitas',{user_id:sbUser.id,ano:mAtual.ano,mes:mAtual.mes,valor:totNovo},'user_id,ano,mes');
-        cacheReceitas[getCacheRecKey()]=totNovo;
+        await sbUpsert('receitas',{user_id:sbUser.id,ano:mAtual.ano,mes:mAtual.mes,valor:totNovo},'user_id,ano,mes');
+        cacheReceitas[k]=totNovo;
         renderReceitas();
+        // Atualizar dashboard se estiver visível
+        if(paginaAtual==='dashboard')updDB();
       });
       s4.appendChild(prefR);s4.appendChild(inpV);
       // Del
@@ -970,11 +973,26 @@ async function renderReceitas(){
 }
 
 document.getElementById('btn-add-receita').addEventListener('click',async function(){
-  var m=MESES_ANOS[mesVisto];
-  var prefix=(m.mes+1<10?'0':'')+(m.mes+1)+'/'+String(m.ano).slice(-2);
-  var novo={user_id:sbUser.id,ano:m.ano,mes:m.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Nova receita',fonte:'Salário',valor:0};
-  var res=await sbPost('receitas_lanc',novo);
-  if(Array.isArray(res)&&res.length){var k=getCacheRecKey();if(!cacheReceitasLanc[k])cacheReceitasLanc[k]=[];cacheReceitasLanc[k].push(res[0]);}
+  var recorrente=confirm('Esta receita é FIXA (repete todo mês)?\n\nOK = Sim, lançar nos próximos 12 meses\nCancelar = Não, apenas este mês');
+  var mesesParaLancar=recorrente?Math.min(12,MESES_ANOS.length-mesVisto):1;
+  for(var mi=0;mi<mesesParaLancar;mi++){
+    var mIdx=mesVisto+mi;
+    if(mIdx>=MESES_ANOS.length)break;
+    var mx=MESES_ANOS[mIdx];
+    var prefix=(mx.mes+1<10?'0':'')+(mx.mes+1)+'/'+String(mx.ano).slice(-2);
+    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Nova receita'+(recorrente?' (fixa)':''),fonte:'Salário',valor:0};
+    var res=await sbPost('receitas_lanc',novo);
+    if(Array.isArray(res)&&res.length){
+      var k=mx.ano+'-'+mx.mes;
+      if(!cacheReceitasLanc[k])cacheReceitasLanc[k]=[];
+      cacheReceitasLanc[k].push(res[0]);
+      // Atualizar total da receita do mês
+      var totNovo=(cacheReceitasLanc[k]||[]).reduce(function(a,x){return a+(+x.valor);},0);
+      sbUpsert('receitas',{user_id:sbUser.id,ano:mx.ano,mes:mx.mes,valor:totNovo},'user_id,ano,mes');
+      cacheReceitas[k]=totNovo;
+    }
+  }
+  if(recorrente){alert('Receita fixa criada nos próximos '+mesesParaLancar+' meses!');}
   renderReceitas();
 });
 
@@ -1281,12 +1299,24 @@ document.getElementById('btn-add-gasto').addEventListener('click',async function
   var gs=await carregarGastos();
   if(!isPremium()&&gs.length>=10){alert('Limite de 10 lançamentos/mês no plano Padrão.\nAssine o Premium para lançamentos ilimitados!');irPara('upgrade');return;}
   if(!isPremium()&&isFuturo()){alert('Lançamentos em meses futuros é um recurso Premium!');irPara('upgrade');return;}
-  var m=MESES_ANOS[mesVisto];
+  // Perguntar se é recorrente
+  var recorrente=confirm('Este lançamento é FIXO (repete todo mês)?\n\nOK = Sim, lançar nos próximos 12 meses\nCancelar = Não, apenas este mês');
   var catAtiva=curCat==='todos'?'Alimentação':curCat;
-  var prefix=(m.mes+1<10?'0':'')+(m.mes+1)+'/'+String(m.ano).slice(-2);
-  var novo={user_id:sbUser.id,ano:m.ano,mes:m.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Novo lançamento',categoria:catAtiva,valor:0};
-  var res=await sbPost('gastos',novo);
-  if(Array.isArray(res)&&res.length){var k=cacheKey();if(!cacheGastos[k])cacheGastos[k]=[];cacheGastos[k].push(res[0]);}
+  var mesesParaLancar=recorrente?Math.min(12,MESES_ANOS.length-mesVisto):1;
+  for(var mi=0;mi<mesesParaLancar;mi++){
+    var mIdx=mesVisto+mi;
+    if(mIdx>=MESES_ANOS.length)break;
+    var mx=MESES_ANOS[mIdx];
+    var prefix=(mx.mes+1<10?'0':'')+(mx.mes+1)+'/'+String(mx.ano).slice(-2);
+    var novo={user_id:sbUser.id,ano:mx.ano,mes:mx.mes,data_str:'00/'+prefix.split('/')[0],descricao:'Novo lançamento'+(recorrente?' (fixo)':''),categoria:catAtiva,valor:0};
+    var res=await sbPost('gastos',novo);
+    if(Array.isArray(res)&&res.length){
+      var k=mx.ano+'-'+mx.mes;
+      if(!cacheGastos[k])cacheGastos[k]=[];
+      cacheGastos[k].push(res[0]);
+    }
+  }
+  if(recorrente){alert('Lançamento fixo criado nos próximos '+mesesParaLancar+' meses!\nEdite o valor e descrição em cada mês conforme necessário.');}
   renderGastos();
 });
 
@@ -1297,6 +1327,14 @@ var chMain=null;
 async function updDB(gs){
   if(!gs)gs=await carregarGastos();
   var rec=await carregarReceita();
+  // Se não há receita manual definida, usar soma dos lançamentos de receita
+  if(!rec){
+    var k=cacheKey();
+    var rl=cacheReceitasLanc[k];
+    if(!rl){var rr=await sbGet('receitas_lanc','user_id=eq.'+sbUser.id+'&ano=eq.'+MESES_ANOS[mesVisto].ano+'&mes=eq.'+MESES_ANOS[mesVisto].mes);rl=Array.isArray(rr)?rr:[];cacheReceitasLanc[k]=rl;}
+    var totRl=rl.reduce(function(a,r){return a+(+r.valor);},0);
+    if(totRl>0){rec=totRl;}
+  }
   var t=gs.reduce(function(a,g){return a+(+g.valor);},0),p=Math.max(0,rec-t);
   document.getElementById('db-rec').textContent=fmtVal(rec);
   document.getElementById('db-rec-sub').textContent=isFuturo()?'planejado — clique para editar':'clique para editar';
@@ -1621,8 +1659,21 @@ async function renderCalendario(){
   }
   document.getElementById('cal-grid').innerHTML=cells;
   // Combinar eventos manuais com lançamentos de gastos e receitas
-  var gs=cacheGastos[cacheKey(calMesVisto)]||[];
-  var rl=cacheReceitasLanc[getCacheRecKey()]||[];
+  // Buscar dados específicos do mês do calendário (não do mês selecionado na sidebar)
+  var mCal=MESES_ANOS[calMesVisto];
+  var kCal=mCal.ano+'-'+mCal.mes;
+  var gs=cacheGastos[kCal]||[];
+  // Carregar gastos do mês do calendário se não estiver em cache
+  if(!cacheGastos[kCal]){
+    var rg=await sbGet('gastos','user_id=eq.'+sbUser.id+'&ano=eq.'+mCal.ano+'&mes=eq.'+mCal.mes);
+    gs=Array.isArray(rg)?rg:[];cacheGastos[kCal]=gs;
+  }
+  // Carregar receitas do mês do calendário
+  if(!cacheReceitasLanc[kCal]){
+    var rrr=await sbGet('receitas_lanc','user_id=eq.'+sbUser.id+'&ano=eq.'+mCal.ano+'&mes=eq.'+mCal.mes);
+    cacheReceitasLanc[kCal]=Array.isArray(rrr)?rrr:[];
+  }
+  var rl=cacheReceitasLanc[kCal]||[];
   // Adicionar gastos ao grid do calendário baseado na data_str
   gs.forEach(function(g){
     if(!g.data_str)return;

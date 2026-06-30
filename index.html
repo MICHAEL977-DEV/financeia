@@ -1995,10 +1995,10 @@ document.getElementById('btn-gerar').addEventListener('click',async function(){
   var t=gs.reduce(function(a,g){return a+(+g.valor);},0);
   document.getElementById('rel-ia').innerHTML='<span style="color:var(--tx3)">Analisando '+getMesLabel()+'...</span>';
   try{
-    var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Análise em 3 tópicos com emojis. Português direto.'},{role:'user',content:'Mês: '+getMesLabel()+'. Receita '+fmtVal(rec)+', Gastos '+fmtVal(t)+', Saldo '+fmtVal(rec-t)+'. '+(isFuturo()?'Mês futuro de planejamento.':'')}]})});
+    var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+sbToken},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Análise em 3 tópicos com emojis. Português direto.'},{role:'user',content:'Mês: '+getMesLabel()+'. Receita '+fmtVal(rec)+', Gastos '+fmtVal(t)+', Saldo '+fmtVal(rec-t)+'. '+(isFuturo()?'Mês futuro de planejamento.':'')}]})});
     if(!r.ok)throw new Error('Status '+r.status);
     var d=await r.json();
-    document.getElementById('rel-ia').innerHTML='<div style="white-space:pre-line">'+(d.choices&&d.choices[0]?d.choices[0].message.content:'Erro na resposta.')+'</div>';
+    document.getElementById('rel-ia').innerHTML='<div style="white-space:pre-line">'+escHtml(d.choices&&d.choices[0]?d.choices[0].message.content:'Erro na resposta.')+'</div>';
   }catch(e){document.getElementById('rel-ia').innerHTML='<span style="color:#E24B4A">Erro ao conectar com a IA.</span>';}
 });
 
@@ -2209,9 +2209,9 @@ document.getElementById('btn-sim').addEventListener('click',async function(){
   }
   document.getElementById('sdica').innerHTML='<span style="color:var(--tx3)">Gerando dica...</span>';
   try{
-    var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:300,messages:[{role:'system',content:'Consultor financeiro. Português. Máximo 2 parágrafos. Tom motivador.'},{role:'user',content:'Aporte inicial '+fmtVal(ap)+', mensal '+fmtVal(mn)+', '+tx+'%/ano, '+an+' anos. Total: '+fmtVal(tot)+'. Dê uma dica motivadora.'}]})});
+    var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+sbToken},body:JSON.stringify({max_tokens:300,messages:[{role:'system',content:'Consultor financeiro. Português. Máximo 2 parágrafos. Tom motivador.'},{role:'user',content:'Aporte inicial '+fmtVal(ap)+', mensal '+fmtVal(mn)+', '+tx+'%/ano, '+an+' anos. Total: '+fmtVal(tot)+'. Dê uma dica motivadora.'}]})});
     var d=await r.json();
-    document.getElementById('sdica').innerHTML='<div style="white-space:pre-line">'+(d.choices&&d.choices[0]?d.choices[0].message.content:'')+'</div>';
+    document.getElementById('sdica').innerHTML='<div style="white-space:pre-line">'+escHtml(d.choices&&d.choices[0]?d.choices[0].message.content:'')+'</div>';
   }catch(e){document.getElementById('sdica').innerHTML='<span style="color:#E24B4A">Erro ao conectar.</span>';}
 });
 

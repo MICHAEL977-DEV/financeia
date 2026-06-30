@@ -775,6 +775,9 @@ var ABAS_PREMIUM = ['investimentos','dividas','metas','orcamento','comparador','
 // ============================================================
 function fmtVal(v){ return 'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function escHtml(s){ var d=document.createElement('div');d.textContent=(s===null||s===undefined)?'':String(s);return d.innerHTML; }
+// Escapa o texto (proteção XSS) e DEPOIS converte **negrito** estilo markdown em <strong>.
+// Seguro porque o conteúdo dentro do <strong> já passou pelo escHtml — não há como injetar HTML.
+function escHtmlMd(s){ return escHtml(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>'); }
 function getMesLabel(idx){ var m=MESES_ANOS[idx===undefined?mesVisto:idx]; return MESES_NOMES[m.mes]+' '+m.ano; }
 function isFuturo(idx){ return (idx===undefined?mesVisto:idx)>MES_ATUAL_IDX; }
 function cacheKey(idx){ var m=MESES_ANOS[idx===undefined?mesVisto:idx]; return m.ano+'-'+m.mes; }
@@ -1998,7 +2001,7 @@ document.getElementById('btn-gerar').addEventListener('click',async function(){
     var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+sbToken},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Análise em 3 tópicos com emojis. Português direto.'},{role:'user',content:'Mês: '+getMesLabel()+'. Receita '+fmtVal(rec)+', Gastos '+fmtVal(t)+', Saldo '+fmtVal(rec-t)+'. '+(isFuturo()?'Mês futuro de planejamento.':'')}]})});
     if(!r.ok)throw new Error('Status '+r.status);
     var d=await r.json();
-    document.getElementById('rel-ia').innerHTML='<div style="white-space:pre-line">'+escHtml(d.choices&&d.choices[0]?d.choices[0].message.content:'Erro na resposta.')+'</div>';
+    document.getElementById('rel-ia').innerHTML='<div style="white-space:pre-line">'+escHtmlMd(d.choices&&d.choices[0]?d.choices[0].message.content:'Erro na resposta.')+'</div>';
   }catch(e){document.getElementById('rel-ia').innerHTML='<span style="color:#E24B4A">Erro ao conectar com a IA.</span>';}
 });
 
@@ -2211,7 +2214,7 @@ document.getElementById('btn-sim').addEventListener('click',async function(){
   try{
     var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+sbToken},body:JSON.stringify({max_tokens:300,messages:[{role:'system',content:'Consultor financeiro. Português. Máximo 2 parágrafos. Tom motivador.'},{role:'user',content:'Aporte inicial '+fmtVal(ap)+', mensal '+fmtVal(mn)+', '+tx+'%/ano, '+an+' anos. Total: '+fmtVal(tot)+'. Dê uma dica motivadora.'}]})});
     var d=await r.json();
-    document.getElementById('sdica').innerHTML='<div style="white-space:pre-line">'+escHtml(d.choices&&d.choices[0]?d.choices[0].message.content:'')+'</div>';
+    document.getElementById('sdica').innerHTML='<div style="white-space:pre-line">'+escHtmlMd(d.choices&&d.choices[0]?d.choices[0].message.content:'')+'</div>';
   }catch(e){document.getElementById('sdica').innerHTML='<span style="color:#E24B4A">Erro ao conectar.</span>';}
 });
 
@@ -2260,7 +2263,7 @@ async function sendChat(){
       resp='Erro da IA: '+d.error.message;
     }
     chatHistory.push({role:'assistant',content:resp});
-    var ab=document.createElement('div');ab.className='bub-ai';ab.textContent=resp;box.appendChild(ab);box.scrollTop=box.scrollHeight;
+    var ab=document.createElement('div');ab.className='bub-ai';ab.innerHTML='<span style="white-space:pre-line">'+escHtmlMd(resp)+'</span>';box.appendChild(ab);box.scrollTop=box.scrollHeight;
   }catch(e){
     document.getElementById('dig').classList.remove('vis');
     var err=document.createElement('div');err.className='bub-ai';err.textContent='Erro de conexão com a IA.';box.appendChild(err);

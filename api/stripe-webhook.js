@@ -117,7 +117,12 @@ export default async function handler(req, res) {
       const customerEmail = session.customer_email || session.customer_details?.email;
       console.log(`[webhook] E-mail do evento: ${customerEmail}`);
 
-      if (!customerEmail) {
+      // Para checkout.session.completed, pagamentos assíncronos (ex: boleto)
+      // disparam esse evento ANTES da confirmação real do pagamento.
+      // payment_status só vem como "paid" quando o dinheiro já caiu.
+      if (event.type === 'checkout.session.completed' && session.payment_status !== 'paid') {
+        console.log(`[webhook] Pagamento ainda não confirmado (payment_status=${session.payment_status}) — aguardando.`);
+      } else if (!customerEmail) {
         console.error('[webhook] Evento sem e-mail do cliente — não há como localizar o usuário');
       } else {
         const user = await findUserByEmail(SUPABASE_URL, SUPABASE_SERVICE_KEY, customerEmail);

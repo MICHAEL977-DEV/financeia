@@ -484,16 +484,6 @@ body.dk .adm-stat.gold{background:#2a1a00}
         <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-chart-bar"></i> Por categoria</div></div><div id="db-bars"></div></div>
         <div class="card"><div class="card-tt"><div class="card-tl"><i class="ti ti-target"></i> Metas</div></div><div id="db-metas"></div></div>
       </div>
-      <div class="card" id="db-invest-card" style="display:none">
-        <div class="card-tt">
-          <div class="card-tl"><i class="ti ti-trending-up"></i> Investimentos</div>
-          <button id="btn-ocultar-inv-db" style="background:var(--inp);border:.5px solid var(--brd);border-radius:6px;padding:3px 10px;cursor:pointer;color:var(--tx3);font-size:11px;font-family:inherit">Ocultar</button>
-        </div>
-        <div style="display:flex;gap:1rem;flex-wrap:wrap">
-          <div><div style="font-size:11px;color:var(--tx3);margin-bottom:3px">Total investido</div><div style="font-size:18px;font-weight:700;color:var(--tx)" id="db-inv-total">R$ 0,00</div></div>
-          <div><div style="font-size:11px;color:var(--tx3);margin-bottom:3px">Rendimento</div><div style="font-size:18px;font-weight:700" id="db-inv-rend">R$ 0,00</div></div>
-        </div>
-      </div>
       <div class="card">
         <div class="card-tt">
           <div class="card-tl"><i class="ti ti-chart-line"></i> Evolução — Receita x Despesa</div>
@@ -789,9 +779,13 @@ function premiumLock(titulo){
   div.innerHTML='<i class="ti ti-lock"></i><h3>Recurso Premium</h3><p><b>'+titulo+'</b> está disponível apenas no plano Premium.</p>';
   var btn=document.createElement('button');btn.className='btn-upgrade';
   btn.innerHTML='<i class="ti ti-crown"></i> Ver planos e assinar';
-  btn.addEventListener('click',function(){irPara('upgrade');});
   div.appendChild(btn);return div.outerHTML;
 }
+// O botão acima é inserido via innerHTML (texto), então addEventListener direto nele
+// nunca funcionaria — o clique é capturado aqui por delegação de evento.
+document.addEventListener('click',function(e){
+  if(e.target.closest('.prem-lock .btn-upgrade'))irPara('upgrade');
+});
 
 function salvarCredenciais(refreshToken){ try{localStorage.setItem(LEMBRAR_KEY,JSON.stringify({rt:refreshToken}));}catch(x){} }
 function limparCredenciais(){ try{localStorage.removeItem(LEMBRAR_KEY);}catch(x){} }

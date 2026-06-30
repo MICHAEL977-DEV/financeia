@@ -1416,7 +1416,7 @@ document.getElementById('btndk').addEventListener('click',function(){
 // Stripe
 document.getElementById('btn-stripe').addEventListener('click',function(){
   if(STRIPE_LINK.indexOf('SEU_LINK')>-1){alert('Configure seu link do Stripe no código (variável STRIPE_LINK).');return;}
-  window.open(STRIPE_LINK+'?prefilled_email='+encodeURIComponent(sbUser.email),'_blank');
+  window.open(STRIPE_LINK+'?prefilled_email='+encodeURIComponent(sbUser.email),'_blank','noopener,noreferrer');
 });
 
 // ============================================================

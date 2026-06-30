@@ -774,6 +774,7 @@ var ABAS_PREMIUM = ['investimentos','dividas','metas','orcamento','comparador','
 // BLOCO 2 — FUNÇÕES UTILITÁRIAS (sem dependências)
 // ============================================================
 function fmtVal(v){ return 'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function escHtml(s){ var d=document.createElement('div');d.textContent=(s===null||s===undefined)?'':String(s);return d.innerHTML; }
 function getMesLabel(idx){ var m=MESES_ANOS[idx===undefined?mesVisto:idx]; return MESES_NOMES[m.mes]+' '+m.ano; }
 function isFuturo(idx){ return (idx===undefined?mesVisto:idx)>MES_ATUAL_IDX; }
 function cacheKey(idx){ var m=MESES_ANOS[idx===undefined?mesVisto:idx]; return m.ano+'-'+m.mes; }
@@ -789,7 +790,7 @@ function premiumLock(titulo){
   div.appendChild(btn);return div.outerHTML;
 }
 
-function salvarCredenciais(e,s){ try{localStorage.setItem(LEMBRAR_KEY,JSON.stringify({email:e,senha:s}));}catch(x){} }
+function salvarCredenciais(refreshToken){ try{localStorage.setItem(LEMBRAR_KEY,JSON.stringify({rt:refreshToken}));}catch(x){} }
 function limparCredenciais(){ try{localStorage.removeItem(LEMBRAR_KEY);}catch(x){} }
 function carregarCredenciais(){ try{var r=localStorage.getItem(LEMBRAR_KEY);return r?JSON.parse(r):null;}catch(x){return null;} }
 
@@ -893,7 +894,7 @@ async function fazerLogin(){
     var d=await r.json();
     if(d.access_token){
       sbToken=d.access_token;sbUser=d.user;
-      if(lembrar)salvarCredenciais(email,pass);else limparCredenciais();
+      if(lembrar&&d.refresh_token)salvarCredenciais(d.refresh_token);else limparCredenciais();
       await carregarPerfil();
       iniciarApp();
     } else {
@@ -1055,7 +1056,7 @@ async function renderReceitas(){
   rl.forEach(function(r){if(!porFonte[r.fonte])porFonte[r.fonte]=0;porFonte[r.fonte]+=(+r.valor);});
   var fontesHtml=Object.keys(porFonte).map(function(f){
     var pct=tot>0?Math.round(porFonte[f]/tot*100):0;
-    return '<div class="rrow"><span>'+f+'</span><span>'+fmtVal(porFonte[f])+' ('+pct+'%)</span></div>';
+    return '<div class="rrow"><span>'+escHtml(f)+'</span><span>'+fmtVal(porFonte[f])+' ('+pct+'%)</span></div>';
   }).join('');
   document.getElementById('rec-fontes').innerHTML=fontesHtml||'<div style="font-size:13px;color:var(--tx3)">Sem lançamentos.</div>';
 }
@@ -1229,10 +1230,9 @@ document.getElementById('btn-logout').addEventListener('click',function(){
   // Limpar mensagens do chat
   var msgsEl=document.getElementById('msgs');
   if(msgsEl)msgsEl.innerHTML='<div class="bub-ai">Olá! Sou seu consultor financeiro. Como posso ajudar?</div>';
-  var saved=carregarCredenciais();
   document.getElementById('app').classList.remove('vis');
   document.getElementById('login-screen').classList.add('vis');
-  if(!saved)limparCredenciais();
+  limparCredenciais(); // logout explícito sempre encerra a sessão persistida
 });
 
 // Detectar link de reset de senha (hash ou query string)
@@ -1765,13 +1765,13 @@ async function updDB(gs){
       if(vencHoje.length){
         var divV=document.createElement('div');
         divV.style.cssText='background:#FCEBEB;border:.5px solid #E24B4A;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#A32D2D;display:flex;align-items:flex-start;gap:10px';
-        divV.innerHTML='<i class="ti ti-bell-ringing" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div><b>Vence hoje!</b> '+vencHoje.map(function(g){return g.descricao+' ('+fmtVal(g.valor)+')';}).join(' • ')+'</div>';
+        divV.innerHTML='<i class="ti ti-bell-ringing" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div><b>Vence hoje!</b> '+vencHoje.map(function(g){return escHtml(g.descricao)+' ('+fmtVal(g.valor)+')';}).join(' • ')+'</div>';
         alertasEl.appendChild(divV);
       }
       if(recHoje.length){
         var divR=document.createElement('div');
         divR.style.cssText='background:#E1F5EE;border:.5px solid #1D9E75;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#085041;display:flex;align-items:flex-start;gap:10px';
-        divR.innerHTML='<i class="ti ti-cash" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div><b>A receber hoje!</b> '+recHoje.map(function(r){return r.descricao+' ('+fmtVal(r.valor)+')';}).join(' • ')+'</div>';
+        divR.innerHTML='<i class="ti ti-cash" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div><b>A receber hoje!</b> '+recHoje.map(function(r){return escHtml(r.descricao)+' ('+fmtVal(r.valor)+')';}).join(' • ')+'</div>';
         alertasEl.appendChild(divR);
       }
     }
@@ -2238,7 +2238,7 @@ async function sendChat(){
     var t=gs.reduce(function(a,g){return a+(+g.valor);},0);
     var iaResponse;
     try{
-      var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Mês: '+getMesLabel()+'. Receita: '+fmtVal(rec)+', Gastos: '+fmtVal(t)+'. Português, amigável, máx 3 parágrafos.'}].concat(chatHistory.slice(-6))})});
+      var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+sbToken},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Mês: '+getMesLabel()+'. Receita: '+fmtVal(rec)+', Gastos: '+fmtVal(t)+'. Português, amigável, máx 3 parágrafos.'}].concat(chatHistory.slice(-6))})});
       if(!r.ok)throw new Error('Status '+r.status);
       iaResponse=await r.json();
     }catch(iaErr){
@@ -2335,40 +2335,40 @@ async function togglePlano(userId,novoPlano){
 // Salvar conteúdo original das páginas premium
 var pagConteudo = {};
 (function(){
-  var abas=['dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
+  var abas=['investimentos','dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
   abas.forEach(function(id){
     var el=document.getElementById('pag-'+id);
     if(el)pagConteudo[id]=el.innerHTML;
   });
 })();
 
-// Preencher campos se lembrar login
+// Marcar "Lembrar-me" se havia uma sessão salva anteriormente
 (function(){
   var saved=carregarCredenciais();
-  if(saved&&saved.email){
-    document.getElementById('li-email').value=saved.email||'';
-    document.getElementById('li-pass').value=saved.senha||'';
+  if(saved&&saved.rt){
     document.getElementById('li-lembrar').checked=true;
   }
 })();
 
-// Verificar sessão salva
+// Verificar sessão salva (via refresh_token, sem guardar senha)
 (async function(){
   try{
-    var stored=localStorage.getItem('sb-pnntrciumzezombujhmh.supabase.co-auth-token');
-    if(!stored){
-      for(var i=0;i<localStorage.length;i++){
-        var k=localStorage.key(i);
-        if(k&&k.indexOf('auth-token')>-1&&k.indexOf('supabase')>-1){stored=localStorage.getItem(k);break;}
-      }
-    }
-    if(stored){
-      var parsed=JSON.parse(stored);
-      if(parsed&&parsed.access_token&&parsed.expires_at*1000>Date.now()){
-        sbToken=parsed.access_token;sbUser=parsed.user;
+    var saved=carregarCredenciais();
+    if(saved&&saved.rt){
+      var r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY},
+        body:JSON.stringify({refresh_token:saved.rt})
+      });
+      var d=await r.json();
+      if(d&&d.access_token){
+        sbToken=d.access_token;sbUser=d.user;
+        if(d.refresh_token)salvarCredenciais(d.refresh_token); // token rotaciona a cada uso
         await carregarPerfil();
         iniciarApp();
         return;
+      } else {
+        limparCredenciais(); // refresh_token expirado/inválido
       }
     }
   }catch(e){console.warn('Sessão:',e);}

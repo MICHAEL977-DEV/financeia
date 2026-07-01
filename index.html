@@ -1602,7 +1602,8 @@ function gRow(g){
   var spDel=document.createElement('span');
   var btnDel=document.createElement('button');btnDel.className='btn-d';btnDel.innerHTML='<i class="ti ti-trash"></i>';
   btnDel.addEventListener('click',async function(){
-    var excluirFut=confirm('Excluir "'+g.descricao+'"?\n\nOK = Excluir ESTE e os PRÓXIMOS meses (lançamento fixo)\nCancelar = Excluir SÓ ESTE mês');
+    if(!confirm('Excluir "'+g.descricao+'"?'))return;
+    var excluirFut=confirm('Este também é um lançamento fixo mensal?\n\nOK = excluir ESTE e os PRÓXIMOS meses\nCancelar = excluir SÓ ESTE mês');
     // Excluir do mês atual sempre
     await sbDelete('gastos','id',g.id);
     var k=cacheKey();

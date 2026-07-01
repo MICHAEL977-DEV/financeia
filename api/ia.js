@@ -90,6 +90,18 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Mensagens inválidas.' });
     }
 
+    // Limite de tamanho da entrada — a Groq cobra por tokens de entrada também.
+    // O uso legítimo do app (system prompt + últimas 6 mensagens curtas) fica
+    // muito abaixo disso; só payloads anormais/abusivos são barrados.
+    const TAMANHO_MAXIMO = 8000; // caracteres somados
+    const tamanhoTotal = messages.reduce(
+      (soma, m) => soma + (typeof m.content === 'string' ? m.content.length : 0),
+      0
+    );
+    if (messages.length > 20 || tamanhoTotal > TAMANHO_MAXIMO) {
+      return res.status(400).json({ error: 'Mensagem muito longa. Tente algo mais curto.' });
+    }
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {

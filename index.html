@@ -1725,13 +1725,13 @@ async function updDB(gs){
   if(cacheMetas){
     document.getElementById('db-metas').innerHTML=cacheMetas.slice(0,3).map(function(m){
       var p2=m.total>0?Math.min(Math.round((+m.atual)/(+m.total)*100),100):0;
-      return '<div class="mitem"><div class="mico"><i class="ti '+(m.icone||'ti-star')+'"></i></div><div class="minf"><div style="font-size:12px;font-weight:500;color:var(--tx)">'+m.nome+'</div><div style="font-size:11px;color:var(--tx3);margin-top:2px">'+fmtVal(m.atual)+' / '+fmtVal(m.total)+'</div><div class="ptrk"><div class="pfil" style="width:'+p2+'%"></div></div></div><span class="mpct">'+p2+'%</span></div>';
+      return '<div class="mitem"><div class="mico"><i class="ti '+(m.icone||'ti-star')+'"></i></div><div class="minf"><div style="font-size:12px;font-weight:500;color:var(--tx)">'+escHtml(m.nome)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:2px">'+fmtVal(m.atual)+' / '+fmtVal(m.total)+'</div><div class="ptrk"><div class="pfil" style="width:'+p2+'%"></div></div></div><span class="mpct">'+p2+'%</span></div>';
     }).join('')||'<div style="font-size:13px;color:var(--tx3)">Nenhuma meta.</div>';
   }
   if(cacheOrc){
     var ov=cacheOrc.filter(function(o){return(+o.gasto)>(+o.limite)&&(+o.limite)>0;});
     var nb=document.getElementById('notif');
-    if(ov.length){nb.classList.add('vis');document.getElementById('ntxt').innerHTML='<b>Atenção!</b> Acima do limite: <b>'+ov.map(function(o){return o.categoria;}).join(', ')+'</b>';}
+    if(ov.length){nb.classList.add('vis');document.getElementById('ntxt').innerHTML='<b>Atenção!</b> Acima do limite: <b>'+ov.map(function(o){return escHtml(o.categoria);}).join(', ')+'</b>';}
     else nb.classList.remove('vis');
   }
   // Atualizar card de investimentos no dashboard
@@ -2122,7 +2122,7 @@ async function renderCalendario(){
   for(var dd=1;dd<=diasNoMes;dd++){
     var ehHoje=(m.mes===hoje.getMonth()&&m.ano===hoje.getFullYear()&&dd===hoje.getDate());
     var evsDia=evts.filter(function(e){return e.dia===dd;});
-    cells+='<div class="cal-d'+(ehHoje?' hj':fut?' futuro-dia':'')+'"><div style="font-size:11px;color:var(--tx3);margin-bottom:2px">'+dd+'</div>'+evsDia.map(function(e){return '<div class="cal-ev" style="background:'+(e.tipo==='receita'?'#E1F5EE':'#FCEBEB')+';color:'+(e.tipo==='receita'?'#0F6E56':'#A32D2D')+'" title="'+e.descricao+'">'+e.descricao+'</div>';}).join('')+'</div>';
+    cells+='<div class="cal-d'+(ehHoje?' hj':fut?' futuro-dia':'')+'"><div style="font-size:11px;color:var(--tx3);margin-bottom:2px">'+dd+'</div>'+evsDia.map(function(e){return '<div class="cal-ev" style="background:'+(e.tipo==='receita'?'#E1F5EE':'#FCEBEB')+';color:'+(e.tipo==='receita'?'#0F6E56':'#A32D2D')+'" title="'+escHtml(e.descricao)+'">'+escHtml(e.descricao)+'</div>';}).join('')+'</div>';
   }
   document.getElementById('cal-grid').innerHTML=cells;
   // Combinar eventos manuais com lançamentos de gastos e receitas
@@ -2268,13 +2268,24 @@ async function sendChat(){
     var iaResponse;
     try{
       var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+sbToken},body:JSON.stringify({max_tokens:600,messages:[{role:'system',content:'Consultor financeiro FinanceIA. Mês: '+getMesLabel()+'. Receita: '+fmtVal(rec)+', Gastos: '+fmtVal(t)+'. Português, amigável, máx 3 parágrafos.'}].concat(chatHistory.slice(-6))})});
-      if(!r.ok)throw new Error('Status '+r.status);
+      if(!r.ok){
+        var corpoErro=null;try{corpoErro=await r.json();}catch(parseErr){}
+        var e2=new Error(corpoErro&&corpoErro.error?corpoErro.error:('Status '+r.status));
+        e2.status=r.status;
+        throw e2;
+      }
       iaResponse=await r.json();
     }catch(iaErr){
       console.warn('Erro /api/ia:',iaErr);
       document.getElementById('dig').classList.remove('vis');
       var errEl=document.createElement('div');errEl.className='bub-ai';
-      errEl.innerHTML='Erro ao conectar com a IA. Verifique se o app está hospedado na Vercel e se a variável <b>GROQ_API_KEY</b> está configurada em Settings → Environment Variables.';
+      if(iaErr.status===429){
+        errEl.textContent=iaErr.message||'Muitas mensagens em pouco tempo. Aguarde alguns minutos e tente novamente.';
+      } else if(iaErr.status===401||iaErr.status===403){
+        errEl.textContent=iaErr.message||'Não foi possível validar sua sessão ou seu plano. Tente fazer login novamente.';
+      } else {
+        errEl.innerHTML='Erro ao conectar com a IA. Verifique se o app está hospedado na Vercel e se a variável <b>GROQ_API_KEY</b> está configurada em Settings → Environment Variables.';
+      }
       document.getElementById('msgs').appendChild(errEl);
       document.getElementById('msgs').scrollTop=99999;
       return;

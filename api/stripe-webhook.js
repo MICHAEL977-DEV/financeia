@@ -103,7 +103,13 @@ export default async function handler(req, res) {
       .update(signedPayload)
       .digest('hex');
 
-    if (expectedSig !== signature) {
+    const expectedBuffer = Buffer.from(expectedSig, 'hex');
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const assinaturaValida =
+      expectedBuffer.length === signatureBuffer.length &&
+      crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
+
+    if (!assinaturaValida) {
       console.error('[webhook] Assinatura inválida');
       return res.status(400).json({ error: 'Assinatura inválida' });
     }

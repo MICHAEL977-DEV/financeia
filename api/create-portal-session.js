@@ -48,7 +48,10 @@ export default async function handler(req, res) {
 
     // 3. Fallback para assinantes antigos (compraram antes de termos essa coluna):
     //    busca o customer no Stripe pelo e-mail da conta.
-    if (!customerId && user.email) {
+    //    SEGURANÇA: só aceita se o e-mail da conta foi CONFIRMADO — sem isso,
+    //    alguém poderia cadastrar uma conta com e-mail alheio (não confirmado)
+    //    e abrir o portal de cobrança de um cliente Stripe com aquele e-mail.
+    if (!customerId && user.email && user.email_confirmed_at) {
       const custResp = await fetch(
         `https://api.stripe.com/v1/customers?email=${encodeURIComponent(user.email)}&limit=1`,
         { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } }

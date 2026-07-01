@@ -736,8 +736,14 @@ var CC = {Moradia:'#0F6E56','Alimentação':'#1D9E75',Transporte:'#EF9F27',Lazer
 
 var MESES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 var MESES_ANOS  = [];
-var MES_ATUAL_IDX = 5;
-var mesVisto    = 5;
+var MESES_PASSADO  = 12; // meses de histórico sempre disponíveis pra trás
+var MESES_FUTURO   = 24; // meses disponíveis pra frente (Premium)
+var MES_BASE = (function(){
+  var hoje = new Date();
+  return new Date(hoje.getFullYear(), hoje.getMonth()-MESES_PASSADO, 1);
+})(); // recalculado a cada carregamento — nunca fica desatualizado
+var MES_ATUAL_IDX = MESES_PASSADO; // hoje está sempre nesta posição fixa da janela
+var mesVisto    = MES_ATUAL_IDX;
 var calMesVisto = MES_ATUAL_IDX; // sempre abre no mês atual
 var paginaAtual = 'dashboard';
 var curCat      = 'todos';
@@ -749,8 +755,9 @@ var LEMBRAR_KEY = 'financeIA_lembrar';
 var chatHistory = [];
 
 (function(){
-  var base = new Date(2026, 0, 1);
-  for(var i = 0; i < 18; i++){
+  var base = MES_BASE;
+  var totalMeses = MESES_PASSADO + 1 + MESES_FUTURO;
+  for(var i = 0; i < totalMeses; i++){
     var d = new Date(base.getFullYear(), base.getMonth()+i, 1);
     MESES_ANOS.push({mes:d.getMonth(), ano:d.getFullYear(), label:MESES_NOMES[d.getMonth()].slice(0,3)+' '+d.getFullYear()});
   }

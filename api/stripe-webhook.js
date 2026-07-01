@@ -51,7 +51,7 @@ async function findUserByEmail(SUPABASE_URL, SUPABASE_SERVICE_KEY, email) {
   return exactMatch;
 }
 
-async function updatePlano(SUPABASE_URL, SUPABASE_SERVICE_KEY, userId, plano) {
+async function updatePerfil(SUPABASE_URL, SUPABASE_SERVICE_KEY, userId, fields) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/perfis?id=eq.${userId}`, {
     method: 'PATCH',
     headers: {
@@ -60,13 +60,13 @@ async function updatePlano(SUPABASE_URL, SUPABASE_SERVICE_KEY, userId, plano) {
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
-    body: JSON.stringify({ plano }),
+    body: JSON.stringify(fields),
   });
 
   const result = await response.json();
 
   if (!response.ok) {
-    console.error(`[webhook] Erro ao atualizar plano (status ${response.status}):`, result);
+    console.error(`[webhook] Erro ao atualizar perfil (status ${response.status}):`, result);
     return false;
   }
 
@@ -75,7 +75,7 @@ async function updatePlano(SUPABASE_URL, SUPABASE_SERVICE_KEY, userId, plano) {
     return false;
   }
 
-  console.log(`[webhook] Plano atualizado para "${plano}" com sucesso:`, result);
+  console.log(`[webhook] Perfil atualizado com sucesso:`, result);
   return true;
 }
 
@@ -127,7 +127,10 @@ export default async function handler(req, res) {
       } else {
         const user = await findUserByEmail(SUPABASE_URL, SUPABASE_SERVICE_KEY, customerEmail);
         if (user) {
-          await updatePlano(SUPABASE_URL, SUPABASE_SERVICE_KEY, user.id, 'premium');
+          await updatePerfil(SUPABASE_URL, SUPABASE_SERVICE_KEY, user.id, {
+            plano: 'premium',
+            stripe_customer_id: session.customer || null,
+          });
         }
       }
     }
@@ -145,7 +148,7 @@ export default async function handler(req, res) {
       if (customer.email) {
         const user = await findUserByEmail(SUPABASE_URL, SUPABASE_SERVICE_KEY, customer.email);
         if (user) {
-          await updatePlano(SUPABASE_URL, SUPABASE_SERVICE_KEY, user.id, 'padrao');
+          await updatePerfil(SUPABASE_URL, SUPABASE_SERVICE_KEY, user.id, { plano: 'padrao' });
         }
       }
     }

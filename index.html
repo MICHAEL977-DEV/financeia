@@ -1395,7 +1395,7 @@ function iniciarApp(){
   if(btnUp)btnUp.style.display=isPremium()?'none':'flex';
   // Gerenciar assinatura (só para quem é premium de verdade, não para admin sem assinatura)
   var btnGer=document.getElementById('btn-gerenciar-assinatura');
-  if(btnGer)btnGer.style.display=(sbPerfil&&sbPerfil.plano==='premium')?'flex':'none';
+  if(btnGer)btnGer.style.display=(sbPerfil&&sbPerfil.plano==='premium'&&!isAdmin())?'flex':'none';
   // Cadeados
   var locks=['investimentos','dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
   locks.forEach(function(id){

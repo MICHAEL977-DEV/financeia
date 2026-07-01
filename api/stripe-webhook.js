@@ -103,6 +103,16 @@ export default async function handler(req, res) {
       .update(signedPayload)
       .digest('hex');
 
+    // Anti-replay: rejeitar eventos com timestamp fora da tolerância (5 min),
+    // conforme recomendação do Stripe. Sem isso, uma requisição legítima
+    // interceptada poderia ser reenviada indefinidamente.
+    const TOLERANCIA_SEGUNDOS = 5 * 60;
+    const agora = Math.floor(Date.now() / 1000);
+    if (!timestamp || Math.abs(agora - Number(timestamp)) > TOLERANCIA_SEGUNDOS) {
+      console.error(`[webhook] Timestamp fora da tolerância (t=${timestamp}, agora=${agora})`);
+      return res.status(400).json({ error: 'Timestamp inválido' });
+    }
+
     const expectedBuffer = Buffer.from(expectedSig, 'hex');
     const signatureBuffer = Buffer.from(signature, 'hex');
     const assinaturaValida =

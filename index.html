@@ -338,7 +338,7 @@ body.dk .adm-stat.gold{background:#2a1a00}
           <button type="button" class="eye-btn" id="cad-eye"><i class="ti ti-eye" id="cad-eye-ico"></i></button>
         </div>
         <div class="login-err" id="cad-err"><i class="ti ti-alert-circle"></i> <span id="cad-err-txt"></span></div>
-        <div class="login-ok" id="cad-ok"><i class="ti ti-check"></i> Conta criada! Faça login.</div>
+        <div class="login-ok" id="cad-ok"><i class="ti ti-check"></i> Conta criada! Verifique seu e-mail para confirmar o cadastro antes de entrar.</div>
         <button class="login-btn" id="cad-btn"><i class="ti ti-user-plus"></i> Criar conta</button>
       </div>
       <div class="login-divider">planos disponíveis</div>
@@ -903,7 +903,9 @@ async function fazerLogin(){
       await carregarPerfil();
       iniciarApp();
     } else {
-      document.getElementById('li-err-txt').textContent=d.error_description||'E-mail ou senha incorretos.';
+      var msgErr=d.error_description||'E-mail ou senha incorretos.';
+      if(/email not confirmed/i.test(msgErr))msgErr='E-mail ainda não confirmado. Verifique sua caixa de entrada (e o spam) e clique no link de confirmação.';
+      document.getElementById('li-err-txt').textContent=msgErr;
       document.getElementById('li-err').classList.add('vis');
     }
   }catch(e){

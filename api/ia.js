@@ -4,6 +4,23 @@
 // sem ser Premium) e consumir a cota da Groq API de graça. Agora validamos
 // o token do usuário e o plano dele no Supabase antes de chamar a IA.
 
+// Rate limit simples em memória (por instância da função).
+// Não é uma garantia perfeita em serverless (cada instância tem seu próprio mapa),
+// mas já barra scripts/abuso repetido dentro da mesma instância "quente".
+// Se no futuro isso não for suficiente, o certo é migrar para um contador
+// centralizado (ex: tabela no Supabase ou Upstash Redis).
+const LIMITE_REQUISICOES = 15;
+const JANELA_MS = 5 * 60 * 1000; // 5 minutos
+const usoPorUsuario = new Map();
+
+function excedeuLimite(userId) {
+  const agora = Date.now();
+  const historico = (usoPorUsuario.get(userId) || []).filter((t) => agora - t < JANELA_MS);
+  historico.push(agora);
+  usoPorUsuario.set(userId, historico);
+  return historico.length > LIMITE_REQUISICOES;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
@@ -59,6 +76,11 @@ export default async function handler(req, res) {
 
     if (!ehPremium) {
       return res.status(403).json({ error: 'Recurso exclusivo do plano Premium.' });
+    }
+
+    // 3.5. Rate limit — evita abuso/custo excessivo com a Groq API
+    if (excedeuLimite(user.id)) {
+      return res.status(429).json({ error: 'Muitas mensagens em pouco tempo. Aguarde alguns minutos e tente novamente.' });
     }
 
     // 4. Tudo certo — chamar a IA

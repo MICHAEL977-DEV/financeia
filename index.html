@@ -415,6 +415,7 @@ body.dk .adm-stat.gold{background:#2a1a00}
     <button class="nb" id="btn-ia"><i class="ti ti-sparkles"></i> <span>Consultor IA</span><i class="ti ti-lock nb-lock" id="lk-ia"></i></button>
     <div class="nf">
       <button class="nb btn-upgrade-sb" id="btn-upgrade-sb" style="display:none"><i class="ti ti-crown"></i> <span>Seja Premium</span></button>
+      <button class="nb" id="btn-gerenciar-assinatura" style="display:none"><i class="ti ti-settings"></i> <span>Gerenciar assinatura</span></button>
       <button class="nb" id="btn-admin" style="display:none"><i class="ti ti-crown"></i> <span>Admin</span></button>
       <div class="uc">
         <div class="av" id="av-letra">?</div>
@@ -1392,6 +1393,9 @@ function iniciarApp(){
   // Upgrade button
   var btnUp=document.getElementById('btn-upgrade-sb');
   if(btnUp)btnUp.style.display=isPremium()?'none':'flex';
+  // Gerenciar assinatura (só para quem é premium de verdade, não para admin sem assinatura)
+  var btnGer=document.getElementById('btn-gerenciar-assinatura');
+  if(btnGer)btnGer.style.display=(sbPerfil&&sbPerfil.plano==='premium')?'flex':'none';
   // Cadeados
   var locks=['investimentos','dividas','metas','orcamento','comparador','relatorio','historico','calendario','simulador','ia'];
   locks.forEach(function(id){
@@ -1406,6 +1410,26 @@ function iniciarApp(){
 
 // Botão upgrade
 document.getElementById('btn-upgrade-sb').addEventListener('click',function(){irPara('upgrade');});
+
+// Botão gerenciar assinatura (Stripe Customer Portal)
+document.getElementById('btn-gerenciar-assinatura').addEventListener('click',async function(){
+  var btn=this;
+  var textoOriginal=btn.innerHTML;
+  btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> <span>Abrindo...</span>';
+  try{
+    var r=await fetch('/api/create-portal-session',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+sbToken}});
+    var d=await r.json();
+    if(r.ok&&d.url){
+      window.location.href=d.url;
+    } else {
+      alert(d.error||'Não foi possível abrir o gerenciamento de assinatura. Tente novamente.');
+      btn.disabled=false;btn.innerHTML=textoOriginal;
+    }
+  }catch(e){
+    alert('Erro de conexão. Tente novamente.');
+    btn.disabled=false;btn.innerHTML=textoOriginal;
+  }
+});
 
 // Modo escuro
 document.getElementById('btndk').addEventListener('click',function(){

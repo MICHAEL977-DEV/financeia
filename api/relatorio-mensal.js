@@ -35,6 +35,13 @@ export default async function handler(req, res) {
     let ano = agora.getUTCFullYear();
     let mes = agora.getUTCMonth() - 1; // mês anterior (0-11)
     if (mes < 0) { mes = 11; ano -= 1; }
+    // Modo de teste (protegido pelo mesmo CRON_SECRET):
+    // ?teste=mes-atual → envia o relatório do mês CORRENTE, útil pra validar
+    // o e-mail sem esperar o dia 1º.
+    if (req.query && req.query.teste === 'mes-atual') {
+      ano = agora.getUTCFullYear();
+      mes = agora.getUTCMonth();
+    }
 
     // Usuários Premium (assinantes de verdade — trial não recebe)
     const usersResp = await fetch(

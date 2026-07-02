@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="FinanceIA"/>
 <meta name="theme-color" content="#0a5c46"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png"/>
 <title>FinanceIA</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
 <style>
@@ -476,6 +479,8 @@ body.dk .adm-stat.gold{background:#2a1a00}
             <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Categoria líder</span><span id="db-cat-lider" style="color:#EF9F27;font-weight:600">—</span></div>
             <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Lançamentos</span><span id="db-qtd-lanc" style="font-weight:600">0</span></div>
             <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Média diária</span><span id="db-media-dia" style="font-weight:600">R$ 0,00</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Projeção do mês</span><span id="db-proj" style="font-weight:600">—</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx)"><span>Saldo projetado</span><span id="db-proj-saldo" style="font-weight:700">—</span></div>
           </div>
         </div>
       </div>
@@ -783,11 +788,34 @@ function cacheKey(idx){ var m=MESES_ANOS[idx===undefined?mesVisto:idx]; return m
 function isPremium(){ return isAdmin()||(sbPerfil&&sbPerfil.plano==='premium'); }
 function isAdmin(){ return !!(sbUser&&(ADMIN_EMAILS.indexOf(sbUser.email)>-1||(sbPerfil&&sbPerfil.perfil==='adm'))); }
 
+// O que cada aba Premium oferece — mostrado no paywall pra pessoa VER o que está perdendo
+var PREMIUM_BENEFICIOS={
+  'Investimentos':['Acompanhe aplicações e rendimento em um só lugar','Veja o total investido direto no Dashboard'],
+  'Controle de dívidas':['Controle parcelas, juros e quitação de cada dívida','Saiba exatamente quanto falta pra ficar no azul'],
+  'Metas financeiras':['Crie metas com progresso visual','Acompanhe quanto falta para cada objetivo'],
+  'Orçamento mensal':['Defina limites por categoria','Receba alerta automático quando estourar'],
+  'Comparador de meses':['Compare seus meses lado a lado','Descubra pra onde seu dinheiro está indo'],
+  'Relatório mensal':['Relatório completo do mês com exportação','Visão consolidada de entradas e saídas'],
+  'Histórico mensal':['Todo o seu histórico financeiro organizado','Navegue por qualquer mês passado'],
+  'Calendário financeiro':['Veja contas e recebimentos dia a dia','Eventos recorrentes lançados automaticamente'],
+  'Calendário':['Veja contas e recebimentos dia a dia','Eventos recorrentes lançados automaticamente'],
+  'Simulador de investimentos':['Simule cenários antes de decidir','Teste o impacto de novos gastos ou receitas'],
+  'Simulador com dicas de IA':['Simule cenários antes de decidir','Dicas de IA sobre cada simulação'],
+  'Consultor IA':['Um consultor financeiro por IA, 24h','Analisa SEUS números e responde em português'],
+  'Análise IA de relatórios':['A IA analisa seu relatório e aponta melhorias','Insights personalizados sobre o seu mês']
+};
 function premiumLock(titulo){
+  var bens=PREMIUM_BENEFICIOS[titulo]||['Recursos avançados de análise e planejamento'];
+  var lista=bens.map(function(b){return '<div style="display:flex;align-items:flex-start;gap:8px;text-align:left;margin-bottom:8px"><i class="ti ti-circle-check" style="color:#1D9E75;font-size:17px;flex-shrink:0;margin-top:1px"></i><span style="font-size:13px;color:var(--tx)">'+b+'</span></div>';}).join('');
   var div=document.createElement('div');div.className='prem-lock';
-  div.innerHTML='<i class="ti ti-lock"></i><h3>Recurso Premium</h3><p><b>'+titulo+'</b> está disponível apenas no plano Premium.</p>';
+  div.innerHTML='<i class="ti ti-crown" style="color:#EF9F27"></i>'+
+    '<h3>'+titulo+' é Premium</h3>'+
+    '<div style="max-width:340px;margin:0 auto 1rem">'+lista+
+    '<div style="display:flex;align-items:flex-start;gap:8px;text-align:left;margin-bottom:8px"><i class="ti ti-circle-check" style="color:#1D9E75;font-size:17px;flex-shrink:0;margin-top:1px"></i><span style="font-size:13px;color:var(--tx)">+ todas as outras abas Premium e receitas ilimitadas</span></div>'+
+    '</div>'+
+    '<p style="margin-bottom:1rem"><b style="color:var(--tx);font-size:16px">R$ 19,90/mês</b> · cancele quando quiser, sem fidelidade</p>';
   var btn=document.createElement('button');btn.className='btn-upgrade';
-  btn.innerHTML='<i class="ti ti-crown"></i> Ver planos e assinar';
+  btn.innerHTML='<i class="ti ti-crown"></i> Quero o Premium';
   div.appendChild(btn);return div.outerHTML;
 }
 // O botão acima é inserido via innerHTML (texto), então addEventListener direto nele
@@ -1869,6 +1897,22 @@ async function updDB(gs){
     if(el2)el2.textContent=catLider;
     if(el3)el3.textContent=gs.length+' lançamento'+(gs.length!==1?'s':'');
     if(el4)el4.textContent=fmtVal(totalGastos/diasNoMes)+'/dia';
+    // Projeção de fim de mês — só faz sentido no mês corrente
+    var elP=document.getElementById('db-proj');var elPS=document.getElementById('db-proj-saldo');
+    var hj=new Date();
+    if(elP&&elPS){
+      if(MESES_ANOS[mesVisto].mes===hj.getMonth()&&MESES_ANOS[mesVisto].ano===hj.getFullYear()&&hj.getDate()>=3){
+        // média por dia CORRIDO até hoje × dias do mês (dia >= 3 evita projeção ruidosa no início)
+        var projGasto=Math.round((totalGastos/hj.getDate())*diasNoMes*100)/100;
+        var projSaldo=Math.round((rec-projGasto)*100)/100;
+        elP.textContent=fmtVal(projGasto);elP.style.color='#E24B4A';
+        elPS.textContent=(projSaldo>=0?'+':'')+fmtVal(projSaldo).replace('R$','R$');
+        elPS.style.color=projSaldo>=0?'#0F6E56':'#E24B4A';
+        elP.title='No ritmo atual de gastos, é o total estimado até o fim do mês';
+      } else {
+        elP.textContent='—';elP.style.color='';elPS.textContent='—';elPS.style.color='';
+      }
+    }
   }
   // Alertas do dia — vencimentos e recebimentos
   var hoje=new Date();
@@ -1899,11 +1943,60 @@ async function updDB(gs){
         divR.innerHTML='<i class="ti ti-cash" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div><b>A receber hoje!</b> '+recHoje.map(function(r){return escHtml(r.descricao)+' ('+fmtVal(r.valor)+')';}).join(' • ')+'</div>';
         alertasEl.appendChild(divR);
       }
+      // Vencimentos nos próximos 3 dias (além de hoje)
+      var vencProx=gs.filter(function(g){
+        if(!g.data_str)return false;
+        var dG=parseInt(g.data_str.split('/')[0]);
+        return dG>diaHoje&&dG<=diaHoje+3;
+      }).sort(function(a,b){return parseInt(a.data_str)-parseInt(b.data_str);});
+      if(vencProx.length){
+        var divP=document.createElement('div');
+        divP.style.cssText='background:#FFF7E8;border:.5px solid #EF9F27;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#7A5006;display:flex;align-items:flex-start;gap:10px';
+        divP.innerHTML='<i class="ti ti-clock-exclamation" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div><b>Vence em breve:</b> '+vencProx.slice(0,4).map(function(g){return 'dia '+parseInt(g.data_str)+' — '+escHtml(g.descricao)+' ('+fmtVal(g.valor)+')';}).join(' • ')+(vencProx.length>4?' e mais '+(vencProx.length-4):'')+'</div>';
+        alertasEl.appendChild(divP);
+      }
+      // Categoria acima da média dos últimos 3 meses (só a partir do dia 10, p/ evitar ruído)
+      if(diaHoje>=10)mostrarAlertaMediaCategoria(gs,alertasEl);
     }
   } else {
     var alertasEl2=document.getElementById('db-alertas');
     if(alertasEl2)alertasEl2.innerHTML='';
   }
+}
+
+// Compara os gastos por categoria do mês atual com a média dos 3 meses anteriores.
+// Cache por mês pra não repetir a consulta a cada atualização do dashboard.
+var _mediaCatCache={};
+async function mostrarAlertaMediaCategoria(gs,alertasEl){
+  try{
+    var k=cacheKey();
+    var medias=_mediaCatCache[k];
+    if(!medias){
+      var pares=[];
+      for(var pi=1;pi<=3;pi++){var ix=mesVisto-pi;if(ix>=0)pares.push('and(ano.eq.'+MESES_ANOS[ix].ano+',mes.eq.'+MESES_ANOS[ix].mes+')');}
+      if(!pares.length)return;
+      var hist=await sbGet('gastos','select=categoria,valor&user_id=eq.'+sbUser.id+'&or=('+pares.join(',')+')');
+      medias={};
+      (hist||[]).forEach(function(g){medias[g.categoria]=(medias[g.categoria]||0)+(+g.valor);});
+      for(var c in medias)medias[c]=medias[c]/pares.length; // média mensal por categoria
+      _mediaCatCache[k]=medias;
+    }
+    var porCat={};gs.forEach(function(g){porCat[g.categoria]=(porCat[g.categoria]||0)+(+g.valor);});
+    var pior=null;
+    for(var cat in porCat){
+      var med=medias[cat]||0;
+      if(med>=50&&porCat[cat]>med*1.3){
+        var excesso=Math.round((porCat[cat]/med-1)*100);
+        if(!pior||excesso>pior.excesso)pior={cat:cat,atual:porCat[cat],media:med,excesso:excesso};
+      }
+    }
+    if(pior&&!document.getElementById('db-alerta-media')){
+      var divM=document.createElement('div');divM.id='db-alerta-media';
+      divM.style.cssText='background:#FFF7E8;border:.5px solid #EF9F27;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#7A5006;display:flex;align-items:flex-start;gap:10px';
+      divM.innerHTML='<i class="ti ti-trending-up" style="font-size:18px;flex-shrink:0;margin-top:1px"></i><div>Seu gasto com <b>'+escHtml(pior.cat)+'</b> está <b>'+pior.excesso+'% acima</b> da sua média ('+fmtVal(pior.atual)+' vs média de '+fmtVal(pior.media)+'/mês).</div>';
+      alertasEl.appendChild(divM);
+    }
+  }catch(e){console.warn('alerta média:',e);}
 }
 
 var grafMeses=6; // padrão 6 meses
@@ -2548,6 +2641,10 @@ var pagConteudo = {};
   }catch(e){console.warn('Sessão:',e);}
   document.getElementById('login-screen').classList.add('vis');
 })();
+// PWA: registrar o service worker (permite instalar o app na tela inicial)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(function(e){console.warn('SW:',e);});
+}
 </script>
 </body>
 </html>

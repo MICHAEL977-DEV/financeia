@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "crons": [
+    { "path": "/api/relatorio-mensal", "schedule": "0 12 1 * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

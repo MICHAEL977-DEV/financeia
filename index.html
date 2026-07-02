@@ -690,6 +690,12 @@ body.dk .adm-stat.gold{background:#2a1a00}
         </ul>
         <button class="btn-pay" id="btn-stripe"><i class="ti ti-credit-card"></i> Assinar agora</button>
       </div>
+      <div class="pay-box" id="box-anual" style="display:none;background:linear-gradient(135deg,#7A5006,#EF9F27)">
+        <h3>Plano Anual <span style="background:rgba(255,255,255,.25);border-radius:8px;padding:2px 8px;font-size:11px;vertical-align:middle;margin-left:6px">2 MESES GRÁTIS</span></h3>
+        <p>Pague uma vez por ano e economize o equivalente a 2 mensalidades.</p>
+        <div class="pay-price">R$ 199 <span>/ano (sai por R$ 16,58/mês)</span></div>
+        <button class="btn-pay" id="btn-stripe-anual"><i class="ti ti-credit-card"></i> Assinar plano anual</button>
+      </div>
       <div class="card" style="text-align:center;padding:1.5rem">
         <p style="font-size:13px;color:var(--tx3);margin-bottom:.5rem">Pagamento seguro via</p>
         <div style="font-size:15px;font-weight:700;color:var(--tx);display:flex;align-items:center;justify-content:center;gap:8px"><i class="ti ti-lock" style="color:#1D9E75"></i> Stripe — Cartão, PIX ou Boleto</div>
@@ -724,6 +730,9 @@ var SB_URL = 'https://pnntrciumzezombujhmh.supabase.co';
 var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBubnRyY2l1bXplem9tYnVqaG1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0Mjc2OTksImV4cCI6MjA5ODAwMzY5OX0.hACQkZDlVUosqGYxFdDisKS4nDrtt4qRKqrakbXxNmk';
 var ADMIN_EMAILS = ['michael.douglas977@outlook.com.br'];
 var STRIPE_LINK  = 'https://buy.stripe.com/3cIfZg2L07EB2hheXFdwc00';
+// Plano ANUAL: crie um segundo Payment Link no Stripe (R$ 199/ano, recorrência anual)
+// e cole o link aqui. Enquanto estiver vazio, o box do plano anual fica oculto.
+var STRIPE_LINK_ANUAL = 'https://buy.stripe.com/3cIfZgfxM1gd1dd5n5dwc01';
 var PRECO_PREMIUM = 19.90;
 
 var sbToken  = null;
@@ -785,7 +794,7 @@ function escHtmlMd(s){ return escHtml(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</s
 function getMesLabel(idx){ var m=MESES_ANOS[idx===undefined?mesVisto:idx]; return MESES_NOMES[m.mes]+' '+m.ano; }
 function isFuturo(idx){ return (idx===undefined?mesVisto:idx)>MES_ATUAL_IDX; }
 function cacheKey(idx){ var m=MESES_ANOS[idx===undefined?mesVisto:idx]; return m.ano+'-'+m.mes; }
-function isPremium(){ return isAdmin()||(sbPerfil&&sbPerfil.plano==='premium'); }
+function isPremium(){ return isAdmin()||(sbPerfil&&sbPerfil.plano==='premium')||trialAtivo(); }
 function isAdmin(){ return !!(sbUser&&(ADMIN_EMAILS.indexOf(sbUser.email)>-1||(sbPerfil&&sbPerfil.perfil==='adm'))); }
 
 // O que cada aba Premium oferece — mostrado no paywall pra pessoa VER o que está perdendo
@@ -935,7 +944,7 @@ async function sbUpsert(table,body,onConflict){
 // ============================================================
 async function carregarPerfil(){
   try{
-    var r=await sbGet('perfis','select=id,nome,plano,perfil&id=eq.'+sbUser.id);
+    var r=await sbGet('perfis','select=id,nome,plano,perfil,trial_ate&id=eq.'+sbUser.id);
     if(Array.isArray(r)&&r.length){
       sbPerfil=r[0];
       if(ADMIN_EMAILS.indexOf(sbUser.email)>-1){sbPerfil.plano='premium';sbPerfil.perfil='adm';}
@@ -945,6 +954,19 @@ async function carregarPerfil(){
   }catch(e){
     sbPerfil={id:sbUser.id,nome:sbUser.email,plano:'padrao',perfil:'usuario'};
   }
+}
+
+// ===== Trial de 7 dias =====
+// Todo cadastro novo ganha Premium por 7 dias (coluna trial_ate no banco,
+// preenchida automaticamente e protegida pelo mesmo trigger do plano).
+function trialAtivo(){
+  if(!sbPerfil||sbPerfil.plano==='premium'||isAdmin())return false;
+  if(!sbPerfil.trial_ate)return false;
+  return new Date(sbPerfil.trial_ate).getTime()>Date.now();
+}
+function diasTrialRestantes(){
+  if(!trialAtivo())return 0;
+  return Math.max(1,Math.ceil((new Date(sbPerfil.trial_ate).getTime()-Date.now())/86400000));
 }
 
 document.getElementById('tab-entrar').addEventListener('click',function(){mostrarTab('entrar');});
@@ -1507,8 +1529,13 @@ function iniciarApp(){
     var avEl=document.getElementById('av-letra');
     if(avEl)avEl.style.cssText='width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#EF9F27,#f7b733);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#412402;flex-shrink:0;box-shadow:0 2px 8px rgba(239,159,39,.5)';
   } else {
-    pb.textContent=plano==='premium'?'Premium':'Padrão';
-    pb.className='plano-badge'+(plano==='padrao'?' padrao':'');
+    if(trialAtivo()){
+      pb.textContent='Premium · teste';
+      pb.className='plano-badge';
+    } else {
+      pb.textContent=plano==='premium'?'Premium':'Padrão';
+      pb.className='plano-badge'+(plano==='padrao'?' padrao':'');
+    }
     pb.style.cssText='';
   }
   // Admin button
@@ -1516,7 +1543,16 @@ function iniciarApp(){
   if(btnAdm)btnAdm.style.display=isAdmin()?'flex':'none';
   // Upgrade button
   var btnUp=document.getElementById('btn-upgrade-sb');
-  if(btnUp)btnUp.style.display=isPremium()?'none':'flex';
+  if(btnUp){
+    if(trialAtivo()){
+      // Durante o teste grátis o CTA continua visível, com contagem regressiva
+      btnUp.style.display='flex';
+      btnUp.innerHTML='<i class="ti ti-crown"></i> <span>Teste grátis: '+diasTrialRestantes()+'d — Assinar</span>';
+    } else {
+      btnUp.style.display=isPremium()?'none':'flex';
+      btnUp.innerHTML='<i class="ti ti-crown"></i> <span>Seja Premium</span>';
+    }
+  }
   // Gerenciar assinatura (só para quem é premium de verdade, não para admin sem assinatura)
   var btnGer=document.getElementById('btn-gerenciar-assinatura');
   if(btnGer)btnGer.style.display=(sbPerfil&&sbPerfil.plano==='premium'&&!isAdmin())?'flex':'none';
@@ -1566,6 +1602,15 @@ document.getElementById('btndk').addEventListener('click',function(){
 document.getElementById('btn-stripe').addEventListener('click',function(){
   if(STRIPE_LINK.indexOf('SEU_LINK')>-1){alert('Configure seu link do Stripe no código (variável STRIPE_LINK).');return;}
   window.open(STRIPE_LINK+'?prefilled_email='+encodeURIComponent(sbUser.email),'_blank','noopener,noreferrer');
+});
+// Plano anual — o box só aparece se o link estiver configurado
+if(STRIPE_LINK_ANUAL){
+  var boxAnual=document.getElementById('box-anual');
+  if(boxAnual)boxAnual.style.display='block';
+}
+document.getElementById('btn-stripe-anual').addEventListener('click',function(){
+  if(!STRIPE_LINK_ANUAL){alert('Plano anual ainda não disponível.');return;}
+  window.open(STRIPE_LINK_ANUAL+'?prefilled_email='+encodeURIComponent(sbUser.email),'_blank','noopener,noreferrer');
 });
 
 // ============================================================

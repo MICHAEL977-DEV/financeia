@@ -93,11 +93,18 @@ export default async function handler(req, res) {
     // Limite de tamanho da entrada — a Groq cobra por tokens de entrada também.
     // O uso legítimo do app (system prompt + últimas 6 mensagens curtas) fica
     // muito abaixo disso; só payloads anormais/abusivos são barrados.
-    const TAMANHO_MAXIMO = 8000; // caracteres somados
-    const tamanhoTotal = messages.reduce(
-      (soma, m) => soma + (typeof m.content === 'string' ? m.content.length : 0),
-      0
+    // IMPORTANTE: content PRECISA ser string — o formato OpenAI também aceita
+    // arrays de partes, o que permitiria contornar a soma de tamanho abaixo.
+    const ROLES_VALIDOS = ['system', 'user', 'assistant'];
+    const formatoValido = messages.every(
+      (m) => m && typeof m.content === 'string' && ROLES_VALIDOS.includes(m.role)
     );
+    if (!formatoValido) {
+      return res.status(400).json({ error: 'Formato de mensagem inválido.' });
+    }
+
+    const TAMANHO_MAXIMO = 8000; // caracteres somados
+    const tamanhoTotal = messages.reduce((soma, m) => soma + m.content.length, 0);
     if (messages.length > 20 || tamanhoTotal > TAMANHO_MAXIMO) {
       return res.status(400).json({ error: 'Mensagem muito longa. Tente algo mais curto.' });
     }

@@ -2445,12 +2445,40 @@ function renderAdmin(filtro){
     btnPln.textContent=isPrem?'→ Padrão':'→ Premium';
     btnPln.addEventListener('click',(function(uid,np){return function(){togglePlano(uid,np);};})(u.id,isPrem?'padrao':'premium'));
     s4.appendChild(btnPln);
+    // Excluir usuário — nunca para contas admin nem para a própria conta
+    if(u.perfil!=='adm'&&(!sbUser||u.id!==sbUser.id)){
+      var btnExc=document.createElement('button');btnExc.className='btn-d';btnExc.style.marginLeft='6px';
+      btnExc.title='Excluir usuário';btnExc.innerHTML='<i class="ti ti-trash"></i>';
+      btnExc.addEventListener('click',(function(uid,uemail){return function(){excluirUsuario(uid,uemail);};})(u.id,u.email||u.nome||u.id));
+      s4.appendChild(btnExc);
+    }
     row.appendChild(s1);row.appendChild(s2);row.appendChild(s3);row.appendChild(s4);
     container.appendChild(row);
   });
 }
 
 document.getElementById('adm-busca').addEventListener('input',function(){renderAdmin(this.value||null);});
+
+async function excluirUsuario(userId,identificacao){
+  if(!confirm('Excluir o usuário "'+identificacao+'"?\n\nISSO É IRREVERSÍVEL: apaga a conta de login e TODOS os dados dele (gastos, receitas, metas, dívidas, eventos, investimentos...).'))return;
+  var conf=prompt('Confirmação final: digite EXCLUIR (em maiúsculas) para apagar "'+identificacao+'" definitivamente:');
+  if(conf!=='EXCLUIR'){alert('Exclusão cancelada.');return;}
+  try{
+    var r=await fetch('/api/admin-delete-user',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+sbToken},
+      body:JSON.stringify({userId:userId})
+    });
+    var d=null;try{d=await r.json();}catch(eJ){}
+    if(r.ok&&d&&d.ok){
+      admUsuarios=admUsuarios.filter(function(x){return x.id!==userId;});
+      renderAdmin(document.getElementById('adm-busca').value||null);
+      alert('Usuário excluído com sucesso.');
+    } else {
+      alert((d&&d.error)||'Não foi possível excluir o usuário. Tente novamente.');
+    }
+  }catch(e){alert('Erro de conexão ao excluir usuário.');}
+}
 
 async function togglePlano(userId,novoPlano){
   try{

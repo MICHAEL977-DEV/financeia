@@ -724,6 +724,7 @@ var PRECO_PREMIUM = 19.90;
 var sbToken  = null;
 var sbUser   = null;
 var sbPerfil = null;
+var sbRefreshToken = null; // mantido em memória p/ renovar a sessão (~1h) mesmo sem "Lembrar-me"
 
 var cacheGastos   = {};
 var cacheReceitas = {};
@@ -805,34 +806,90 @@ function carregarCredenciais(){ try{var r=localStorage.getItem(LEMBRAR_KEY);retu
 function sbHeaders(){
   return {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY)};
 }
+
+// Renova a sessão usando o refresh_token (memória ou localStorage).
+// O access_token do Supabase expira em ~1h; sem isso, um app aberto por muito
+// tempo "perdia" os dados da tela e edições paravam de salvar silenciosamente.
+async function renovarSessao(){
+  try{
+    var saved=carregarCredenciais();
+    var rt=sbRefreshToken||(saved&&saved.rt)||null;
+    if(!rt)return false;
+    var r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},
+      body:JSON.stringify({refresh_token:rt})
+    });
+    var d=await r.json();
+    if(d&&d.access_token){
+      sbToken=d.access_token;
+      if(d.user)sbUser=d.user;
+      if(d.refresh_token){
+        sbRefreshToken=d.refresh_token;               // token rotaciona a cada uso
+        if(saved&&saved.rt)salvarCredenciais(d.refresh_token); // persiste só se "Lembrar-me" estava ativo
+      }
+      return true;
+    }
+  }catch(e){console.warn('renovarSessao:',e);}
+  return false;
+}
+
+var _avisoSessaoDado=false;
+function sessaoExpirou(){
+  if(_avisoSessaoDado)return;
+  _avisoSessaoDado=true;
+  alert('Sua sessão expirou. Faça login novamente para continuar.\n\nAlterações feitas após a expiração podem não ter sido salvas.');
+  sbToken=null;sbUser=null;sbPerfil=null;sbRefreshToken=null;
+  document.getElementById('app').classList.remove('vis');
+  document.getElementById('login-screen').classList.add('vis');
+}
+
+// Todas as chamadas ao banco passam por aqui: se o token expirou (401),
+// tenta renovar UMA vez e repete a chamada; se não der, avisa e volta pro login.
+async function sbFetch(url,opts){
+  opts=opts||{};
+  opts.headers=Object.assign({},sbHeaders(),opts.headers||{});
+  var r=await fetch(url,opts);
+  if(r.status===401&&sbToken){
+    if(await renovarSessao()){
+      opts.headers=Object.assign({},sbHeaders(),opts.headers||{},{'Authorization':'Bearer '+sbToken});
+      r=await fetch(url,opts);
+    }
+    if(r.status===401)sessaoExpirou();
+  }
+  return r;
+}
+
 async function sbGet(table, qs){
   try{
-    var r=await fetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''),{headers:sbHeaders()});
+    var r=await sbFetch(SB_URL+'/rest/v1/'+table+(qs?'?'+qs:''));
     if(!r.ok){console.warn('sbGet',r.status,table,qs);return [];}
     return await r.json();
   }catch(e){console.warn('sbGet err',e);return [];}
 }
 async function sbPost(table,body){
   try{
-    var r=await fetch(SB_URL+'/rest/v1/'+table,{method:'POST',headers:Object.assign({},sbHeaders(),{'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    var r=await sbFetch(SB_URL+'/rest/v1/'+table,{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(body)});
+    if(!r.ok){console.warn('sbPost falhou',r.status,table);return [];}
     return await r.json();
   }catch(e){return [];}
 }
 async function sbPatch(table,body,col,val){
   try{
-    var r=await fetch(SB_URL+'/rest/v1/'+table+'?'+col+'=eq.'+val,{method:'PATCH',headers:Object.assign({},sbHeaders(),{'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    var r=await sbFetch(SB_URL+'/rest/v1/'+table+'?'+col+'=eq.'+val,{method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify(body)});
+    if(!r.ok){console.warn('sbPatch falhou',r.status,table);return [];}
     return await r.json();
   }catch(e){return [];}
 }
 async function sbDelete(table,col,val){
   try{
-    var r=await fetch(SB_URL+'/rest/v1/'+table+'?'+col+'=eq.'+val,{method:'DELETE',headers:sbHeaders()});
+    var r=await sbFetch(SB_URL+'/rest/v1/'+table+'?'+col+'=eq.'+val,{method:'DELETE'});
     return r.ok;
   }catch(e){return false;}
 }
 async function sbUpsert(table,body,onConflict){
   try{
-    var r=await fetch(SB_URL+'/rest/v1/'+table+'?on_conflict='+onConflict,{method:'POST',headers:Object.assign({},sbHeaders(),{'Prefer':'return=representation,resolution=merge-duplicates'}),body:JSON.stringify(body)});
+    var r=await sbFetch(SB_URL+'/rest/v1/'+table+'?on_conflict='+onConflict,{method:'POST',headers:{'Prefer':'return=representation,resolution=merge-duplicates'},body:JSON.stringify(body)});
+    if(!r.ok){console.warn('sbUpsert falhou',r.status,table);return [];}
     return await r.json();
   }catch(e){return [];}
 }
@@ -899,6 +956,8 @@ async function fazerLogin(){
     var d=await r.json();
     if(d.access_token){
       sbToken=d.access_token;sbUser=d.user;
+      sbRefreshToken=d.refresh_token||null; // em memória, p/ renovação automática da sessão
+      _avisoSessaoDado=false;
       if(lembrar&&d.refresh_token)salvarCredenciais(d.refresh_token);else limparCredenciais();
       await carregarPerfil();
       iniciarApp();
@@ -1075,11 +1134,13 @@ document.getElementById('btn-add-receita').addEventListener('click',async functi
   var ehFixoR=confirm('Esta receita é FIXA (repete todo mês)?\n\nOK = Sim, fixo mensal\nCancelar = Não, apenas este mês');
   var descLancR, diaLancR, mesesLancR, valorLancR;
   if(ehFixoR){
-    descLancR=prompt('Descrição (ex: Salário, Aluguel recebido...):') || 'Receita fixa';
-    if(!descLancR){return;}
+    descLancR=prompt('Descrição (ex: Salário, Aluguel recebido...):','');
+    if(descLancR===null){return;} // Cancelar cancela de verdade
+    if(!descLancR)descLancR='Receita fixa';
     diaLancR=prompt('Dia do recebimento (1 a 31):','5') || '5';
     diaLancR=diaLancR.padStart(2,'0');
-    valorLancR=parseFloat(prompt('Valor (R$):','0')) || 0;
+    var vStrR=(prompt('Valor R$ (use ponto ou vírgula para centavos, ex: 1500.50):','0')||'0').replace(',','.');
+    valorLancR=parseFloat(vStrR) || 0;
     valorLancR=Math.round(valorLancR*100)/100;
     var qtdMesesR=parseInt(prompt('Repetir por quantos meses?','12')) || 12;
     mesesLancR=Math.min(qtdMesesR, MESES_ANOS.length-mesVisto);
@@ -1231,7 +1292,7 @@ document.getElementById('btn-ocultar-inv').addEventListener('click',function(){
 document.getElementById('btn-logout').addEventListener('click',function(){
   if(!confirm('Sair do FinanceIA?'))return;
   fetch(SB_URL+'/auth/v1/logout',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+sbToken}});
-  sbToken=null;sbUser=null;sbPerfil=null;
+  sbToken=null;sbUser=null;sbPerfil=null;sbRefreshToken=null;_avisoSessaoDado=false;
   cacheGastos={};cacheReceitas={};cacheReceitasLanc={};cacheDividas=null;cacheMetas=null;cacheOrc=null;cacheEventos={};cacheInvest=null;
   chatHistory=[];
   // Limpar mensagens do chat
@@ -1614,7 +1675,7 @@ function gRow(g){
       // Buscar e deletar nos meses futuros direto do banco
       var mAtual=MESES_ANOS[mesVisto];
       // Deletar todos os registros com mesma descrição e categoria nos meses futuros
-      var rFut=await fetch(SB_URL+'/rest/v1/gastos?user_id=eq.'+sbUser.id+'&descricao=eq.'+encodeURIComponent(g.descricao)+'&categoria=eq.'+encodeURIComponent(g.categoria)+'&or=(ano.gt.'+mAtual.ano+',and(ano.eq.'+mAtual.ano+',mes.gt.'+mAtual.mes+'))',{method:'DELETE',headers:sbHeaders()});
+      var rFut=await sbFetch(SB_URL+'/rest/v1/gastos?user_id=eq.'+sbUser.id+'&descricao=eq.'+encodeURIComponent(g.descricao)+'&categoria=eq.'+encodeURIComponent(g.categoria)+'&or=(ano.gt.'+mAtual.ano+',and(ano.eq.'+mAtual.ano+',mes.gt.'+mAtual.mes+'))',{method:'DELETE'});
       // Limpar cache dos meses futuros
       for(var fi=mesVisto+1;fi<MESES_ANOS.length;fi++){
         var fk=MESES_ANOS[fi].ano+'-'+MESES_ANOS[fi].mes;
@@ -2316,8 +2377,8 @@ async function carregarAdmin(){
   if(!isAdmin())return;
   document.getElementById('adm-list').innerHTML='<div class="loading-tab"><div class="sp"></div>Carregando...</div>';
   try{
-    var r=await fetch(SB_URL+'/rest/v1/perfis?select=id,nome,email,plano,perfil&limit=100',{
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+sbToken,'Accept':'application/json'}
+    var r=await sbFetch(SB_URL+'/rest/v1/perfis?select=id,nome,email,plano,perfil&limit=100',{
+      headers:{'Accept':'application/json'}
     });
     var txt=await r.text();
     try{admUsuarios=JSON.parse(txt);}catch(e){admUsuarios=[];}
@@ -2359,10 +2420,15 @@ document.getElementById('adm-busca').addEventListener('input',function(){renderA
 
 async function togglePlano(userId,novoPlano){
   try{
-    await fetch(SB_URL+'/rest/v1/perfis?id=eq.'+userId,{
-      method:'PATCH',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+sbToken,'Prefer':'return=representation'},
-      body:JSON.stringify({plano:novoPlano})
-    });
+    // sbPatch verifica r.ok e renova a sessão automaticamente se o token expirou.
+    // return=representation: só devolve linhas se o UPDATE realmente aconteceu.
+    var res=await sbPatch('perfis',{plano:novoPlano},'id',userId);
+    // O trigger do banco reverte a coluna silenciosamente (sem erro) se quem
+    // chamou não for admin — por isso conferimos o VALOR retornado, não só o ok.
+    if(!res||!res.length||res[0].plano!==novoPlano){
+      alert('O banco não confirmou a alteração do plano. Verifique sua sessão/permissão e tente novamente.');
+      return;
+    }
     var u=admUsuarios.find(function(x){return x.id===userId;});
     if(u)u.plano=novoPlano;
     if(sbUser&&sbUser.id===userId){
@@ -2408,6 +2474,7 @@ var pagConteudo = {};
       var d=await r.json();
       if(d&&d.access_token){
         sbToken=d.access_token;sbUser=d.user;
+        sbRefreshToken=d.refresh_token||null;
         if(d.refresh_token)salvarCredenciais(d.refresh_token); // token rotaciona a cada uso
         await carregarPerfil();
         iniciarApp();

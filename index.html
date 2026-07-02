@@ -256,17 +256,21 @@ body.dk .adm-stat.gold{background:#2a1a00}
 .modal-btns{display:flex;gap:8px;margin-top:4px}
 .modal-ok{flex:1;padding:10px;font-size:13px;font-weight:700;border-radius:8px;background:#0F6E56;color:#fff;border:none;cursor:pointer;font-family:inherit}
 .modal-cancel{flex:1;padding:10px;font-size:13px;font-weight:700;border-radius:8px;background:var(--inp);color:var(--tx);border:.5px solid var(--brd);cursor:pointer;font-family:inherit}
+.mob-top,.mob-backdrop{display:none}
 @media(max-width:700px){
   body{padding:0}
   .app{border-radius:0;min-height:100vh;flex-direction:column}
-  .sb{width:100%;flex-direction:row;padding:.75rem 1rem;gap:0;overflow-x:auto;min-height:56px;align-items:center}
-  .sb .ng,.sb .logo-nm small,.sb .nf{display:none}
-  .sb .logo{margin-bottom:0;margin-right:8px}
-  .sb .mes-nav{margin-bottom:0;margin-right:8px;min-width:110px}
-  .nb{padding:7px 10px;font-size:11px;white-space:nowrap;flex-direction:column;gap:2px;min-width:52px;align-items:center;border-radius:10px}
-  .nb i{font-size:18px;color:rgba(255,255,255,.6)}
-  .nb.ativo i{color:#412402}
-  .nb span{display:none}
+  /* Cabeçalho compacto fixo */
+  .mob-top{display:flex;align-items:center;gap:10px;background:linear-gradient(160deg,#0a5c46,#0F6E56);padding:.55rem .8rem;position:sticky;top:0;z-index:60}
+  .mob-burger{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:21px;border-radius:9px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+  .mob-title{display:flex;align-items:center;gap:6px;color:#fff;font-weight:700;font-size:15px}
+  .mob-title i{color:#EF9F27;font-size:18px}
+  #mes-slot-mobile .mes-nav{margin-bottom:0;min-width:128px}
+  /* Sidebar vira gaveta deslizante com nomes completos */
+  .sb{position:fixed;top:0;left:0;bottom:0;width:272px;max-width:82vw;transform:translateX(-105%);transition:transform .22s ease;z-index:100;flex-direction:column;overflow-y:auto;padding:1rem;box-shadow:none}
+  .sb.aberta{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,.35)}
+  .mob-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:90}
+  .mob-backdrop.vis{display:block}
   .main{padding:1rem .75rem}
   .g4{grid-template-columns:1fr 1fr}
   .g2,.rg2,.sim-g,.rg3{grid-template-columns:1fr}
@@ -389,12 +393,20 @@ body.dk .adm-stat.gold{background:#2a1a00}
 
 <!-- APP -->
 <div class="app" id="app">
-  <div class="sb">
+  <!-- Cabeçalho mobile: hambúrguer + logo + mês (só aparece em telas pequenas) -->
+  <div class="mob-top" id="mob-top">
+    <button class="mob-burger" id="mob-burger" aria-label="Abrir menu"><i class="ti ti-menu-2"></i></button>
+    <div class="mob-title"><i class="ti ti-leaf"></i><span>FinanceIA</span></div>
+    <div id="mes-slot-mobile" style="margin-left:auto"></div>
+  </div>
+  <div class="mob-backdrop" id="mob-backdrop"></div>
+  <div class="sb" id="sb">
     <div class="logo">
       <div class="logo-ico"><i class="ti ti-leaf"></i></div>
       <div class="logo-nm"><span>FinanceIA</span><small>Planejador</small></div>
     </div>
-    <div class="mes-nav">
+    <div id="mes-slot-desktop"></div>
+    <div class="mes-nav" id="mes-nav-el">
       <button class="mes-btn" id="mes-prev"><i class="ti ti-chevron-left"></i></button>
       <div style="flex:1;text-align:center"><div class="mes-label" id="mes-label-sb">Jun 2026</div></div>
       <button class="mes-btn" id="mes-next"><i class="ti ti-chevron-right"></i></button>
@@ -2700,6 +2712,32 @@ var pagConteudo = {};
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('/sw.js').catch(function(e){console.warn('SW:',e);});
 }
+
+// ===== Menu mobile (gaveta lateral) =====
+function abrirMenuMobile(){
+  document.getElementById('sb').classList.add('aberta');
+  document.getElementById('mob-backdrop').classList.add('vis');
+}
+function fecharMenuMobile(){
+  document.getElementById('sb').classList.remove('aberta');
+  document.getElementById('mob-backdrop').classList.remove('vis');
+}
+document.getElementById('mob-burger').addEventListener('click',abrirMenuMobile);
+document.getElementById('mob-backdrop').addEventListener('click',fecharMenuMobile);
+// Fecha ao escolher qualquer item do menu (navegação, upgrade, admin, logout...)
+document.getElementById('sb').addEventListener('click',function(e){
+  if(e.target.closest('.nb')||e.target.closest('#btn-logout'))fecharMenuMobile();
+});
+// A navegação de mês mora na sidebar no desktop e no topo no mobile
+var _mqMobile=window.matchMedia('(max-width:700px)');
+function posicionarMesNav(){
+  var nav=document.getElementById('mes-nav-el');
+  var slot=_mqMobile.matches?document.getElementById('mes-slot-mobile'):document.getElementById('mes-slot-desktop');
+  if(nav&&slot&&nav.parentNode!==slot)slot.appendChild(nav);
+}
+posicionarMesNav();
+if(_mqMobile.addEventListener)_mqMobile.addEventListener('change',posicionarMesNav);
+else if(_mqMobile.addListener)_mqMobile.addListener(posicionarMesNav);
 </script>
 </body>
 </html>

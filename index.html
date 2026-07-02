@@ -1613,6 +1613,21 @@ document.getElementById('btn-stripe-anual').addEventListener('click',function(){
   window.open(STRIPE_LINK_ANUAL+'?prefilled_email='+encodeURIComponent(sbUser.email),'_blank','noopener,noreferrer');
 });
 
+// Metas no Dashboard — busca do banco na primeira vez (antes, só aparecia
+// depois de abrir a aba Metas, que era quem populava o cache)
+async function renderMetasDashboard(){
+  var el=document.getElementById('db-metas');
+  if(!el)return;
+  if(!cacheMetas){
+    var r=await sbGet('metas','user_id=eq.'+sbUser.id+'&order=criado_em.asc');
+    cacheMetas=Array.isArray(r)?r:[];
+  }
+  el.innerHTML=cacheMetas.slice(0,3).map(function(m){
+    var p2=m.total>0?Math.min(Math.round((+m.atual)/(+m.total)*100),100):0;
+    return '<div class="mitem"><div class="mico"><i class="ti '+(m.icone||'ti-star')+'"></i></div><div class="minf"><div style="font-size:12px;font-weight:500;color:var(--tx)">'+escHtml(m.nome)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:2px">'+fmtVal(m.atual)+' / '+fmtVal(m.total)+'</div><div class="ptrk"><div class="pfil" style="width:'+p2+'%"></div></div></div><span class="mpct">'+p2+'%</span></div>';
+  }).join('')||'<div style="font-size:13px;color:var(--tx3)">Nenhuma meta. Crie a primeira na aba Metas.</div>';
+}
+
 // ============================================================
 // BLOCO 7 — SISTEMA DE MESES
 // ============================================================
@@ -1891,12 +1906,7 @@ async function updDB(gs){
   var ct=CATS.map(function(c){return{cat:c,val:gs.filter(function(g){return g.categoria===c;}).reduce(function(a,g){return a+(+g.valor);},0)};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,6);
   var mx=ct.length?ct[0].val:1;
   document.getElementById('db-bars').innerHTML=ct.length?ct.map(function(x){return '<div class="brow"><span class="bcat">'+x.cat+'</span><div class="btrk"><div style="height:6px;border-radius:3px;width:'+Math.round(x.val/mx*100)+'%;background:'+(CC[x.cat]||'#0F6E56')+'"></div></div><span class="bvl">'+fmtVal(x.val)+'</span></div>';}).join(''):'<div style="font-size:13px;color:var(--tx3);padding:8px 0">Sem gastos neste mês.</div>';
-  if(cacheMetas){
-    document.getElementById('db-metas').innerHTML=cacheMetas.slice(0,3).map(function(m){
-      var p2=m.total>0?Math.min(Math.round((+m.atual)/(+m.total)*100),100):0;
-      return '<div class="mitem"><div class="mico"><i class="ti '+(m.icone||'ti-star')+'"></i></div><div class="minf"><div style="font-size:12px;font-weight:500;color:var(--tx)">'+escHtml(m.nome)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:2px">'+fmtVal(m.atual)+' / '+fmtVal(m.total)+'</div><div class="ptrk"><div class="pfil" style="width:'+p2+'%"></div></div></div><span class="mpct">'+p2+'%</span></div>';
-    }).join('')||'<div style="font-size:13px;color:var(--tx3)">Nenhuma meta.</div>';
-  }
+  renderMetasDashboard();
   if(cacheOrc){
     var ov=cacheOrc.filter(function(o){return(+o.gasto)>(+o.limite)&&(+o.limite)>0;});
     var nb=document.getElementById('notif');

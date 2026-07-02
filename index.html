@@ -1093,17 +1093,42 @@ async function renderReceitas(){
       // Del
       var s5=document.createElement('span');var btnD=document.createElement('button');btnD.className='btn-d';
       btnD.innerHTML='<i class="ti ti-trash"></i>';
-      btnD.addEventListener('click',(function(rid){return async function(){
+      btnD.addEventListener('click',(function(rl){return async function(){
         if(!confirm('Excluir esta receita?'))return;
-        await sbDelete('receitas_lanc','id',rid);
-        cacheReceitasLanc[getCacheRecKey()]=(cacheReceitasLanc[getCacheRecKey()]||[]).filter(function(x){return x.id!==rid;});
-        // Atualizar total
+        var excluirFutR=confirm('Esta também é uma receita fixa mensal?\n\nOK = excluir ESTA e as dos PRÓXIMOS meses\nCancelar = excluir SÓ ESTE mês');
+        await sbDelete('receitas_lanc','id',rl.id);
+        cacheReceitasLanc[getCacheRecKey()]=(cacheReceitasLanc[getCacheRecKey()]||[]).filter(function(x){return x.id!==rl.id;});
+        // Atualizar total do mês atual
         var totNovo2=(cacheReceitasLanc[getCacheRecKey()]||[]).reduce(function(a,x){return a+(+x.valor);},0);
         var mAtual2=MESES_ANOS[mesVisto];
         await sbUpsert('receitas',{user_id:sbUser.id,ano:mAtual2.ano,mes:mAtual2.mes,valor:totNovo2},'user_id,ano,mes');
         cacheReceitas[getCacheRecKey()]=totNovo2;
+        if(excluirFutR){
+          // 1. Apagar lançamentos com mesma descrição nos meses futuros
+          //    (return=representation → sabemos exatamente quais meses foram afetados)
+          var filtroFut='user_id=eq.'+sbUser.id+'&descricao=eq.'+encodeURIComponent(rl.descricao)+'&or=(ano.gt.'+mAtual2.ano+',and(ano.eq.'+mAtual2.ano+',mes.gt.'+mAtual2.mes+'))';
+          var rDel=await sbFetch(SB_URL+'/rest/v1/receitas_lanc?'+filtroFut,{method:'DELETE',headers:{'Prefer':'return=representation'}});
+          var apagadas=[];try{apagadas=await rDel.json();}catch(eJ){}
+          if(!Array.isArray(apagadas))apagadas=[];
+          // 2. Recalcular o total mensal (tabela receitas) de cada mês afetado
+          var mesesAfetados={};
+          apagadas.forEach(function(x){mesesAfetados[x.ano+'-'+x.mes]={ano:x.ano,mes:x.mes};});
+          if(apagadas.length){
+            var restantes=await sbGet('receitas_lanc','select=ano,mes,valor&user_id=eq.'+sbUser.id+'&or=(ano.gt.'+mAtual2.ano+',and(ano.eq.'+mAtual2.ano+',mes.gt.'+mAtual2.mes+'))');
+            var somas={};
+            restantes.forEach(function(x){var kk=x.ano+'-'+x.mes;somas[kk]=(somas[kk]||0)+(+x.valor);});
+            for(var kk in mesesAfetados){
+              var mA=mesesAfetados[kk];
+              var totM=Math.round((somas[kk]||0)*100)/100;
+              await sbUpsert('receitas',{user_id:sbUser.id,ano:mA.ano,mes:mA.mes,valor:totM},'user_id,ano,mes');
+              cacheReceitas[kk]=totM;
+              if(cacheReceitasLanc[kk])cacheReceitasLanc[kk]=cacheReceitasLanc[kk].filter(function(x){return x.descricao!==rl.descricao;});
+            }
+          }
+          alert(apagadas.length?('Excluída deste e de mais '+apagadas.length+' meses futuros!'):'Excluída deste mês (nenhuma igual encontrada nos meses futuros).');
+        }
         renderReceitas();
-      };})(r.id));
+      };})(r));
       s5.appendChild(btnD);
       row.appendChild(s1);row.appendChild(s2);row.appendChild(s3);row.appendChild(s4);row.appendChild(s5);
       container.appendChild(row);

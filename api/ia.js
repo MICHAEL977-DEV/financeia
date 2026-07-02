@@ -62,7 +62,7 @@ export default async function handler(req, res) {
 
     // 3. Checar se o usuário é Premium (ou admin) na tabela perfis
     const perfilResp = await fetch(
-      `${SUPABASE_URL}/rest/v1/perfis?id=eq.${user.id}&select=plano,perfil`,
+      `${SUPABASE_URL}/rest/v1/perfis?id=eq.${user.id}&select=plano,perfil,trial_ate`,
       {
         headers: {
           apikey: SUPABASE_SERVICE_KEY,
@@ -72,7 +72,8 @@ export default async function handler(req, res) {
     );
     const perfilData = await perfilResp.json();
     const perfil = Array.isArray(perfilData) ? perfilData[0] : null;
-    const ehPremium = perfil && (perfil.plano === 'premium' || perfil.perfil === 'adm');
+    const trialAtivo = perfil && perfil.trial_ate && new Date(perfil.trial_ate).getTime() > Date.now();
+    const ehPremium = perfil && (perfil.plano === 'premium' || perfil.perfil === 'adm' || trialAtivo);
 
     if (!ehPremium) {
       return res.status(403).json({ error: 'Recurso exclusivo do plano Premium.' });

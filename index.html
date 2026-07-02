@@ -810,27 +810,35 @@ function sbHeaders(){
 // Renova a sessão usando o refresh_token (memória ou localStorage).
 // O access_token do Supabase expira em ~1h; sem isso, um app aberto por muito
 // tempo "perdia" os dados da tela e edições paravam de salvar silenciosamente.
-async function renovarSessao(){
-  try{
-    var saved=carregarCredenciais();
-    var rt=sbRefreshToken||(saved&&saved.rt)||null;
-    if(!rt)return false;
-    var r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
-      method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},
-      body:JSON.stringify({refresh_token:rt})
-    });
-    var d=await r.json();
-    if(d&&d.access_token){
-      sbToken=d.access_token;
-      if(d.user)sbUser=d.user;
-      if(d.refresh_token){
-        sbRefreshToken=d.refresh_token;               // token rotaciona a cada uso
-        if(saved&&saved.rt)salvarCredenciais(d.refresh_token); // persiste só se "Lembrar-me" estava ativo
+// Cadeado: várias chamadas paralelas com 401 compartilham UMA renovação
+// (o refresh_token rotaciona a cada uso; disparos simultâneos são arriscados).
+var _renovacaoEmAndamento=null;
+function renovarSessao(){
+  if(_renovacaoEmAndamento)return _renovacaoEmAndamento;
+  _renovacaoEmAndamento=(async function(){
+    try{
+      var saved=carregarCredenciais();
+      var rt=sbRefreshToken||(saved&&saved.rt)||null;
+      if(!rt)return false;
+      var r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
+        method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},
+        body:JSON.stringify({refresh_token:rt})
+      });
+      var d=await r.json();
+      if(d&&d.access_token){
+        sbToken=d.access_token;
+        if(d.user)sbUser=d.user;
+        if(d.refresh_token){
+          sbRefreshToken=d.refresh_token;               // token rotaciona a cada uso
+          if(saved&&saved.rt)salvarCredenciais(d.refresh_token); // persiste só se "Lembrar-me" estava ativo
+        }
+        return true;
       }
-      return true;
-    }
-  }catch(e){console.warn('renovarSessao:',e);}
-  return false;
+    }catch(e){console.warn('renovarSessao:',e);}
+    return false;
+  })();
+  _renovacaoEmAndamento.finally(function(){_renovacaoEmAndamento=null;});
+  return _renovacaoEmAndamento;
 }
 
 var _avisoSessaoDado=false;
@@ -2291,6 +2299,7 @@ document.getElementById('mevt-cancel').addEventListener('click',function(){docum
 document.getElementById('mevt-ok').addEventListener('click',async function(){
   var desc=document.getElementById('mevt-desc').value.trim();
   var dia=parseInt(document.getElementById('mevt-dia').value)||1;
+  dia=Math.min(31,Math.max(1,dia)); // fora de 1-31 o evento nunca apareceria no calendário
   var val=Math.round((parseFloat(document.getElementById('mevt-val').value)||0)*100)/100;
   var tipo=document.getElementById('mevt-tipo').value;
   var recor=document.getElementById('mevt-recor').value==='sim';

@@ -1980,6 +1980,13 @@ async function updDB(gs){
         elP.textContent='—';elP.style.color='';elPS.textContent='—';elPS.style.color='';
       }
     }
+  } else {
+    // Mês sem gastos: limpar resumo e projeção (senão ficam congelados
+    // com os valores do último mês visitado)
+    ['db-maior-gasto','db-cat-lider','db-qtd-lanc','db-media-dia','db-proj','db-proj-saldo'].forEach(function(idr){
+      var e=document.getElementById(idr);
+      if(e){e.textContent='—';e.style.color='';}
+    });
   }
   // Alertas do dia — vencimentos e recebimentos
   var hoje=new Date();
